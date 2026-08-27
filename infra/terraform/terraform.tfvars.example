@@ -1,0 +1,5 @@
+name_prefix            = "closedai"
+location               = "japaneast"
+postgres_admin_password = "ChangeThis_12chars"
+neo4j_password          = "ChangeThis_12chars"
+enable_nat_gateway      = true
