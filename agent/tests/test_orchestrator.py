@@ -44,6 +44,14 @@ async def test_run_skill_from_chat() -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_trade_docs_from_chat() -> None:
+    response = await run_chat(1, "貿易書類チェックを回して", facade=_facade())
+    assert response.status == "skill_ran"
+    assert response.skill_id == "trade-docs"
+    assert "通貨" in response.answer
+
+
+@pytest.mark.asyncio
 async def test_contract_send_needs_approval() -> None:
     response = await run_chat(1, "契約レビュー依頼を法務に送信して", facade=_facade())
     assert response.status == "needs_approval"
