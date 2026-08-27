@@ -25,3 +25,4 @@ admin/src/storage/framework/views/*
 .idea/
 .vscode/
 .DS_Store
+agent/samples/office/imported/

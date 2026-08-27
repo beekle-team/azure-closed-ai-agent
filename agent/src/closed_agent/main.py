@@ -37,7 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 _facade = RetrievalFacade()
-_ingest = IngestPipeline(settings.sample_root / "corpus", _facade.keyword, _facade.graph)
+_write_root = settings.sample_root / "imported"
+_write_root.mkdir(parents=True, exist_ok=True)
+_ingest = IngestPipeline(_write_root, _facade.keyword, _facade.graph)
 _ingest.hydrate()
 import_microsoft_knowledge(_ingest)
 
