@@ -6,6 +6,7 @@ from closed_agent.channels.dispatch import dispatch
 from closed_agent.channels.mail import parse_mail
 from closed_agent.channels.teams import parse_teams
 from closed_agent.ingest.pipeline import IngestPipeline
+from closed_agent.llm import llm_backend, llm_model
 from closed_agent.orchestrator import run_chat
 from closed_agent.retrieve.facade import RetrievalFacade, plan_search
 from closed_agent.schemas import (
@@ -33,7 +34,13 @@ _ingest = IngestPipeline(settings.sample_root / "corpus", _facade.keyword, _faca
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "store": _ingest.store.kind, "bus": _ingest.bus.kind}
+    return {
+        "status": "ok",
+        "store": _ingest.store.kind,
+        "bus": _ingest.bus.kind,
+        "llm": llm_backend(),
+        "model": llm_model(),
+    }
 
 
 @app.get("/")

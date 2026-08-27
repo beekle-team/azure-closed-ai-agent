@@ -39,6 +39,7 @@ Teams / メール / ブラウザ
 
 手元の Azure は公式エミュレータ。`make up` で Azurite（Blob / Queue）。Service Bus は `make up-emulators`。
 閉域（VNet / Private Endpoint）はエミュレータでは見ない。Jumpbox から見る。
+推論は Azure OpenAI が空ならモック。`OPENROUTER_API_KEY` を置くと OpenRouter で口伝の答え方を踏める。
 
 `make bootstrap` が [laravel-react-docker-template](https://github.com/beekle-team/laravel-react-docker-template) を clone し、`admin-overlay/` を載せる。
 Azure は `infra/terraform`。構成は `docs/architecture.md`。

@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from closed_agent.billing import BillingClient, QuotaExceededError
-from closed_agent.llm import complete
+from closed_agent.llm import complete, llm_model
 from closed_agent.retrieve.facade import RetrievalFacade, plan_search, refine_search_plan
 from closed_agent.retrieve.types import RetrievalHit, RetrievalResult, SearchPlan
 from closed_agent.schemas import ChatResponse, Citation
@@ -142,7 +142,7 @@ async def run_chat(
             user_id=user_id,
             organization_id=access["organization_id"],
             request_id=request_id,
-            model=settings.azure_openai_deployment or "mock",
+            model=llm_model(),
             input_tokens=completion.input_tokens,
             output_tokens=completion.output_tokens,
         )

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from closed_agent.settings import settings
 
@@ -12,17 +12,48 @@ class Completion:
     output_tokens: int
 
 
+def llm_backend() -> str:
+    if settings.openrouter_api_key.strip():
+        return "openrouter"
+    if settings.azure_openai_endpoint.strip() and settings.azure_openai_api_key.strip():
+        return "azure"
+    return "mock"
+
+
+def llm_model() -> str:
+    backend = llm_backend()
+    if backend == "openrouter":
+        return settings.openrouter_model
+    if backend == "azure":
+        return settings.azure_openai_deployment
+    return "mock"
+
+
 async def complete(*, system: str, user: str) -> Completion:
-    if not settings.azure_openai_endpoint or not settings.azure_openai_api_key:
+    backend = llm_backend()
+    if backend == "mock":
         return Completion(text=_mock_from_context(user), input_tokens=16, output_tokens=48)
 
-    client = AsyncAzureOpenAI(
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_key=settings.azure_openai_api_key,
-        api_version=settings.azure_openai_api_version,
-    )
+    if backend == "openrouter":
+        client: AsyncOpenAI | AsyncAzureOpenAI = AsyncOpenAI(
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url.rstrip("/"),
+            default_headers={
+                "HTTP-Referer": "http://admin.localhost",
+                "X-Title": "closed-agent-local",
+            },
+        )
+        model = settings.openrouter_model
+    else:
+        client = AsyncAzureOpenAI(
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
+            api_version=settings.azure_openai_api_version,
+        )
+        model = settings.azure_openai_deployment
+
     response = await client.chat.completions.create(
-        model=settings.azure_openai_deployment,
+        model=model,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
