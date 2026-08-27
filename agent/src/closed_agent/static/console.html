@@ -292,6 +292,9 @@
     document.getElementById("save-token").onclick = () => {
       localStorage.setItem("agentToken", token());
       whoami();
+      loadKnowledge();
+      loadMail();
+      loadApprovals();
     };
     document.getElementById("token").value = localStorage.getItem("agentToken") || "local-admin";
 

@@ -99,8 +99,8 @@ def classify(name: str, kind: str = "Document", source_system: str = "") -> Reso
         return ResourceACL("法務部", "internal", org_wide=True)
     if source_system == "purview":
         return ResourceACL("情報システム部", "restricted")
-    if kind == "TacitKnowledge" or name.startswith("口伝"):
-        return ResourceACL(ORG_WIDE, "confidential")
+    if kind == "TacitKnowledge" or "口伝" in name:
+        return ResourceACL("情報システム部", "restricted", org_wide=False)
     if kind == "CreditRule" or kind == "Route" and "与信" in name:
         return ResourceACL("与信室", "confidential")
     if kind == "Route":

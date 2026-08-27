@@ -51,6 +51,13 @@ def test_unknown_identity_is_nobody() -> None:
     assert directory.resolve_identity("aad-admin") is not None
 
 
+def test_unlabeled_tacit_is_restricted() -> None:
+    sales = directory.resolve_identity("sales@example.com")
+    assert sales is not None
+    assert not can_read(sales, classify("監査プローブ", "TacitKnowledge"))
+    assert not can_read(sales, classify("新しい口伝", "TacitKnowledge"))
+
+
 def test_sales_cannot_read_credit_tacit() -> None:
     sales = directory.resolve_identity("sales@example.com")
     assert sales is not None
