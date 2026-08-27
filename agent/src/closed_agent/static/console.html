@@ -289,12 +289,9 @@
       ask(text);
     };
 
-    document.getElementById("save-token").onclick = () => {
+    document.getElementById("save-token").onclick = async () => {
       localStorage.setItem("agentToken", token());
-      whoami();
-      loadKnowledge();
-      loadMail();
-      loadApprovals();
+      await Promise.all([whoami(), loadKnowledge(), loadMail(), loadApprovals(), health()]);
     };
     document.getElementById("token").value = localStorage.getItem("agentToken") || "local-admin";
 
@@ -421,8 +418,7 @@
       }
     }
 
-    health();
-    whoami();
+    Promise.all([health(), whoami(), loadKnowledge(), loadMail(), loadApprovals()]);
   </script>
 </body>
 </html>
