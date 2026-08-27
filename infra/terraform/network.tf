@@ -134,6 +134,11 @@ resource "azurerm_private_dns_zone" "servicebus" {
   resource_group_name = azurerm_resource_group.main.name
 }
 
+resource "azurerm_private_dns_zone" "acr" {
+  name                = "privatelink.azurecr.io"
+  resource_group_name = azurerm_resource_group.main.name
+}
+
 resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
   name                  = "${var.name_prefix}-openai-link"
   resource_group_name   = azurerm_resource_group.main.name
@@ -173,5 +178,12 @@ resource "azurerm_private_dns_zone_virtual_network_link" "servicebus" {
   name                  = "${var.name_prefix}-servicebus-link"
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.servicebus.name
+  virtual_network_id    = azurerm_virtual_network.main.id
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "acr" {
+  name                  = "${var.name_prefix}-acr-link"
+  resource_group_name   = azurerm_resource_group.main.name
+  private_dns_zone_name = azurerm_private_dns_zone.acr.name
   virtual_network_id    = azurerm_virtual_network.main.id
 }

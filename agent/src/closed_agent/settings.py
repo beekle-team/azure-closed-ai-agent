@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     smtp_port: int = 1025
     mail_from: str = "agent@localhost"
     graph_access_token: str = ""
+    azure_tenant_id: str = ""
+    azure_client_id: str = ""
+    entra_jwks_url: str = ""
+    entra_allow_unknown: bool = False
+    azure_search_endpoint: str = ""
+    azure_search_api_key: str = ""
+    azure_search_index: str = "corpus"
+    azure_search_api_version: str = "2024-07-01"
 
 
 settings = Settings()

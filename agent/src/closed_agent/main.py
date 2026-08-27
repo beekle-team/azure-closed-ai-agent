@@ -14,12 +14,14 @@ from closed_agent.channels.mail import parse_mail
 from closed_agent.channels.outbound import OUTBOX, list_inbox
 from closed_agent.channels.teams import parse_teams
 from closed_agent.dlp import scan
+from closed_agent.entra import ready as entra_ready
 from closed_agent.identity import Principal
 from closed_agent.ingest.pipeline import IngestPipeline
 from closed_agent.knowledge.microsoft import import_microsoft_knowledge
 from closed_agent.llm import llm_backend, llm_model
 from closed_agent.orchestrator import run_chat
 from closed_agent.retrieve.facade import RetrievalFacade, plan_search
+from closed_agent.retrieve.index import search_backend
 from closed_agent.schemas import (
     ApprovalRequest,
     ChannelReplyResponse,
@@ -34,7 +36,7 @@ from closed_agent.skills.runner import run_skill
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-app = FastAPI(title="Closed AI Agent", version="0.4.0")
+app = FastAPI(title="Closed AI Agent", version="0.5.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
@@ -61,6 +63,9 @@ def health() -> dict[str, object]:
         "knowledge": len(_facade.keyword.catalog()),
         "app": "/app",
         "auth": settings.auth_mode,
+        "entra": entra_ready(),
+        "search": search_backend(_facade.keyword),
+        "graph": "token" if settings.graph_access_token.strip() else "fixture",
     }
 
 

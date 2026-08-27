@@ -53,12 +53,24 @@ variable "neo4j_password" {
 
 variable "admin_image" {
   type        = string
-  default     = "nginx:alpine"
-  description = "本番は Private ACR の管理画面イメージ。公開レジストリのまま出さない"
+  default     = ""
+  description = "空なら ACR の closed-admin:latest。公開レジストリは使わない"
 }
 
 variable "agent_image" {
   type        = string
-  default     = "python:3.12-slim"
-  description = "本番は Private ACR のエージェントイメージ。公開レジストリのまま出さない"
+  default     = ""
+  description = "空なら ACR の closed-agent:latest。公開レジストリは使わない"
+}
+
+variable "azure_tenant_id" {
+  type        = string
+  default     = ""
+  description = "Entra テナント。AUTH_MODE=entra で必須"
+}
+
+variable "azure_client_id" {
+  type        = string
+  default     = ""
+  description = "エージェント API のアプリ ID。JWT の aud"
 }

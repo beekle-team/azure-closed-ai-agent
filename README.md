@@ -34,9 +34,12 @@ make up
 | http://127.0.0.1:8025 | Mailpit |
 
 `Authorization: Bearer local-admin` が無い `/v1/*` は 401。
+本番 (`AUTH_MODE=entra`) は Entra の JWT を JWKS で検証する。未検証の JWT は受けない。未知の oid は拒否する。
 送信・発注・削除・公開は承認レコードを残す。存在しない ID は通らない。
 監査はハッシュ連鎖。改ざんすると `/v1/audit` が壊れていると言う。
 契約書本文・与信点・社外秘以上は DLP で止める。
+検索は `AZURE_SEARCH_ENDPOINT` があれば Azure AI Search。空なら手元の全文。
+Graph トークンがあるときは OneDrive / SharePoint の本文（テキストと docx）を取る。名前だけは置かない。
 
 ```
 Teams / メール / ブラウザ
@@ -44,9 +47,10 @@ Teams / メール / ブラウザ
      Traefik
         ├── Laravel + Inertia     画面、ユーザー、課金
         └── FastAPI
-              ├── 身元 / 承認 / 監査
+              ├── Entra / ローカルトークン
+              ├── 承認 / 監査
               ├── スキル
-              ├── Search Service（権限で削る）
+              ├── Azure AI Search（権限で削る）
               └── Azure OpenAI（本番） / OpenRouter（手元）
 ```
 

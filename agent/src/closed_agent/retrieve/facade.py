@@ -1,6 +1,7 @@
 from closed_agent.acl import can_read_hit, can_use_skill
 from closed_agent.graph.client import GraphClient
 from closed_agent.identity import Principal
+from closed_agent.retrieve.index import build_index
 from closed_agent.retrieve.keyword import KeywordIndex
 from closed_agent.retrieve.rrf import fuse
 from closed_agent.retrieve.structured import StructuredStore
@@ -91,7 +92,7 @@ class RetrievalFacade:
     ) -> None:
         root = settings.sample_root
         self.graph = graph or GraphClient()
-        self.keyword = keyword or KeywordIndex(root / "corpus")
+        self.keyword = keyword or build_index(root / "corpus")
         self.structured = structured or StructuredStore(root / "structured.json")
         self.skills = skills or SkillCatalog(root / "skills")
 

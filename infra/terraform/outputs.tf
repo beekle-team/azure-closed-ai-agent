@@ -30,6 +30,14 @@ output "search_service_name" {
   value = azurerm_search_service.main.name
 }
 
+output "acr_login_server" {
+  value = azurerm_container_registry.main.login_server
+}
+
+output "agent_image" {
+  value = local.agent_image
+}
+
 output "servicebus_namespace" {
   value = azurerm_servicebus_namespace.main.name
 }

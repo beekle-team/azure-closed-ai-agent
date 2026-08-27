@@ -7,6 +7,11 @@ resource "azurerm_container_app_environment" "main" {
   internal_load_balancer_enabled = true
 }
 
+locals {
+  agent_image = var.agent_image != "" ? var.agent_image : "${azurerm_container_registry.main.login_server}/closed-agent:latest"
+  admin_image = var.admin_image != "" ? var.admin_image : "${azurerm_container_registry.main.login_server}/closed-admin:latest"
+}
+
 resource "azurerm_container_app" "admin" {
   name                         = "${var.name_prefix}-admin"
   container_app_environment_id = azurerm_container_app_environment.main.id
@@ -18,10 +23,15 @@ resource "azurerm_container_app" "admin" {
     identity_ids = [azurerm_user_assigned_identity.app.id]
   }
 
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = azurerm_user_assigned_identity.app.id
+  }
+
   template {
     container {
       name   = "admin"
-      image  = var.admin_image
+      image  = local.admin_image
       cpu    = 0.25
       memory = "0.5Gi"
     }
@@ -49,10 +59,20 @@ resource "azurerm_container_app" "agent" {
     identity_ids = [azurerm_user_assigned_identity.app.id]
   }
 
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = azurerm_user_assigned_identity.app.id
+  }
+
+  secret {
+    name  = "search-key"
+    value = azurerm_search_service.main.primary_key
+  }
+
   template {
     container {
       name   = "agent"
-      image  = var.agent_image
+      image  = local.agent_image
       cpu    = 0.5
       memory = "1Gi"
 
@@ -63,12 +83,37 @@ resource "azurerm_container_app" "agent" {
 
       env {
         name  = "AUTH_MODE"
-        value = "local"
+        value = "entra"
+      }
+
+      env {
+        name  = "AZURE_TENANT_ID"
+        value = var.azure_tenant_id
+      }
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = var.azure_client_id
       }
 
       env {
         name  = "AZURE_OPENAI_ENDPOINT"
         value = azurerm_cognitive_account.openai.endpoint
+      }
+
+      env {
+        name  = "AZURE_SEARCH_ENDPOINT"
+        value = "https://${azurerm_search_service.main.name}.search.windows.net"
+      }
+
+      env {
+        name        = "AZURE_SEARCH_API_KEY"
+        secret_name = "search-key"
+      }
+
+      env {
+        name  = "AZURE_SEARCH_INDEX"
+        value = "corpus"
       }
     }
   }

@@ -53,6 +53,7 @@ class KeywordIndex:
     """Azure AI Search のローカル代替。原本の見出し単位を全文で持つ。"""
 
     def __init__(self, corpus_dir: Path) -> None:
+        self.backend = "keyword"
         self.docs: list[dict[str, str]] = []
         if corpus_dir.exists():
             for path in sorted(corpus_dir.glob("*.md")):

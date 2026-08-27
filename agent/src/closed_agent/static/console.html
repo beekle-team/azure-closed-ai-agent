@@ -241,7 +241,7 @@
     async function health() {
       const payload = await (await fetch("/health")).json();
       document.getElementById("status").textContent =
-        `${payload.llm} / ${payload.store} / 認証 ${payload.auth} / ナレッジ ${payload.knowledge} 件`;
+        `${payload.llm} / ${payload.store} / 検索 ${payload.search} / 認証 ${payload.auth} / ナレッジ ${payload.knowledge} 件`;
     }
 
     async function whoami() {

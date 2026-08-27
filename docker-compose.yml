@@ -86,6 +86,12 @@ services:
       MAILPIT_URL: http://mailpit:8025
       MAIL_FROM: ${MAIL_FROM:-agent@localhost}
       GRAPH_ACCESS_TOKEN: ${GRAPH_ACCESS_TOKEN:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      ENTRA_JWKS_URL: ${ENTRA_JWKS_URL:-}
+      AZURE_SEARCH_ENDPOINT: ${AZURE_SEARCH_ENDPOINT:-}
+      AZURE_SEARCH_API_KEY: ${AZURE_SEARCH_API_KEY:-}
+      AZURE_SEARCH_INDEX: ${AZURE_SEARCH_INDEX:-corpus}
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;}
       AZURE_BLOB_CONTAINER: corpus
       AZURE_INGEST_QUEUE: ingest

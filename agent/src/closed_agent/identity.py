@@ -43,8 +43,8 @@ def _builtin_users() -> list[Principal]:
             clearance="restricted",
             roles=frozenset({"admin", "approver", "auditor"}),
             token="local-admin",
-            entra_oid="aad-admin",
-            aliases=frozenset({"1", "admin", "aad-admin"}),
+            entra_oid="11111111-1111-1111-1111-111111111111",
+            aliases=frozenset({"1", "admin", "aad-admin", "11111111-1111-1111-1111-111111111111"}),
         ),
         Principal(
             user_id=2,
@@ -54,7 +54,8 @@ def _builtin_users() -> list[Principal]:
             clearance="confidential",
             roles=frozenset({"user"}),
             token="local-sales",
-            aliases=frozenset({"sales"}),
+            entra_oid="22222222-2222-2222-2222-222222222222",
+            aliases=frozenset({"sales", "22222222-2222-2222-2222-222222222222"}),
         ),
         Principal(
             user_id=3,

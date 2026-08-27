@@ -7,6 +7,8 @@ Teams とメールも同じ Orchestrator に入る。入口だけが違う。
 
 エージェントの `/v1/*` は Bearer（または `X-Agent-Token`）が無いと動かない。
 `user_id` はクライアントが名乗っても使わない。トークンから Principal を開く。
+`AUTH_MODE=local` は手元のトークン。`entra` は JWKS で署名・iss・aud・exp を見る。`hybrid` は両方。
+未知の oid は拒否する。未検証の JWT は受けない。
 未知のメール / Teams 差出人は `user_id=1` に寄せない。拒否する。
 
 ## 正本の分け方
@@ -24,7 +26,7 @@ Neo4j が関係の正本。
 全社は規程だけを持つ。検索はヒットしたあと、質問者の部署と機密区分で削る。
 他部署の口伝は返さない。口伝はマニュアルより現場の正本として扱う。
 
-Azure AI Search（ローカルでは全文インデックス）が文言の正本。
+Azure AI Search が文言の正本。エンドポイントが空の手元では同じインタフェースの全文インデックス。
 見出し単位で引き、グラフと構造化データと足す。権限フィルタの前に計画を書く。
 
 FastAPI が推論と実行の正本。
@@ -53,7 +55,8 @@ Search Service が全文、グラフ、決裁表、スキルを足して、質�
 
 原本の更新は `/v1/ingest` が文書庫へ書き、ingest キュー経由で全文とグラフを更新する。
 起動時に文書庫を読み直し、検索面を戻す。書くときも部署と DLP を見る。
-Microsoft 365 の文書は Graph から取る。トークンが無い手元では SharePoint / Teams / Outlook / OneDrive / Purview の見本を入れる。
+Microsoft 365 の文書は Graph から取る。OneDrive と SharePoint の driveItem は `/content` で本文を取る。テキストと docx。フォルダは辿らない。
+トークンが無い手元では SharePoint / Teams / Outlook / OneDrive / Purview の見本を入れる。
 公式ドキュメントそのもの（learn.microsoft.com）は入れない。入れるのはテナントの中の文書である。
 
 メールと Teams は入口だけが違う。チャネル API は共有秘密が要る。
@@ -74,7 +77,9 @@ VNet と Private Endpoint はエミュレータには無い。
 
 VNet、Azure OpenAI、Key Vault、Blob、AI Search、Service Bus を Private Endpoint で閉じる。
 Container Apps は内部ロードバランサ。
-イメージは Private ACR を変数で渡す。公開レジストリのまま出さない。
+イメージは Private ACR（Premium + Private Endpoint）。`scripts/push-acr.sh` で `closed-agent:latest` を上げる。
+公開レジストリの python / nginx は使わない。
+エージェントは `AUTH_MODE=entra` と Azure AI Search のキーを secret で受ける。
 診断設定を Log Analytics に流す。
 Neo4j は VNet 内の Container Instance。
 PostgreSQL は Flexible Server の VNet 統合。
