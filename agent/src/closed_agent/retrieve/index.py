@@ -9,6 +9,8 @@ class SyncedIndex(KeywordIndex):
     """手元の全文に加え、設定があれば Azure AI Search へも書く。検索は Azure を先に見る。"""
 
     def __init__(self, corpus_dir: Path, remote: AzureSearchClient | None = None) -> None:
+        # 親の読み込みが add() を呼ぶので、先に属性を置いてから中身を載せる。
+        self.remote = None
         super().__init__(corpus_dir)
         self.remote = remote
         self.backend = "azure" if remote is not None else "keyword"

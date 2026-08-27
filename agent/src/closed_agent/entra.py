@@ -23,8 +23,18 @@ def jwks_url() -> str:
 
 
 def issuer() -> str:
+    issuers = valid_issuers()
+    return issuers[0] if issuers else ""
+
+
+def valid_issuers() -> list[str]:
     tenant = settings.azure_tenant_id.strip()
-    return f"https://login.microsoftonline.com/{tenant}/v2.0" if tenant else ""
+    if not tenant:
+        return []
+    return [
+        f"https://login.microsoftonline.com/{tenant}/v2.0",
+        f"https://sts.windows.net/{tenant}/",
+    ]
 
 
 def _client(url: str) -> PyJWKClient:
@@ -49,7 +59,7 @@ def decode_token(token: str) -> dict[str, Any] | None:
             signing_key.key,
             algorithms=["RS256"],
             audience=audience,
-            issuer=issuer(),
+            issuer=valid_issuers(),
             options={"require": ["exp", "iss", "aud"]},
         )
     except (jwt.PyJWTError, httpx.HTTPError, ValueError):

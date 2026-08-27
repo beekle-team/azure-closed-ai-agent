@@ -193,7 +193,7 @@ def test_sales_cannot_self_approve() -> None:
     pending = client.post(
         "/v1/chat",
         headers=_headers("local-sales"),
-        json={"question": "この見積を顧客へ送信して"},
+        json={"question": "この見積を顧客へ送信して。自己承認の試験。"},
     ).json()
     assert pending["status"] == "needs_approval"
     denied = client.post(

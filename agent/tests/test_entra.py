@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from closed_agent.auth import resolve_principal_from_token
-from closed_agent.entra import decode_token, principal_from_claims, reset_cache
+from closed_agent.entra import decode_token, principal_from_claims, reset_cache, valid_issuers
 from closed_agent.identity import directory
 from closed_agent.settings import settings
 
@@ -38,6 +38,13 @@ def test_hybrid_keeps_local_token(monkeypatch) -> None:
     found = resolve_principal_from_token("local-sales")
     assert found is not None
     assert found.department == "営業部"
+
+
+def test_issuers_include_v1_and_v2(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "azure_tenant_id", "tenant-id")
+    issuers = valid_issuers()
+    assert "https://login.microsoftonline.com/tenant-id/v2.0" in issuers
+    assert "https://sts.windows.net/tenant-id/" in issuers
 
 
 def test_decode_requires_tenant(monkeypatch) -> None:

@@ -46,21 +46,21 @@ class AuditLog:
         detail: str = "",
         channel: str = "api",
     ) -> dict[str, str]:
-        event = {
-            "ts": _now(),
-            "action": action,
-            "actor": principal.email if principal else "anonymous",
-            "user_id": str(principal.user_id) if principal else "",
-            "department": principal.department if principal else "",
-            "resource": resource,
-            "outcome": outcome,
-            "detail": (detail or "")[:500],
-            "channel": channel,
-            "prev_hash": self._last_hash,
-        }
-        payload = json.dumps(event, ensure_ascii=False, sort_keys=True)
-        event["hash"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         with self._lock:
+            event = {
+                "ts": _now(),
+                "action": action,
+                "actor": principal.email if principal else "anonymous",
+                "user_id": str(principal.user_id) if principal else "",
+                "department": principal.department if principal else "",
+                "resource": resource,
+                "outcome": outcome,
+                "detail": (detail or "")[:500],
+                "channel": channel,
+                "prev_hash": self._last_hash,
+            }
+            payload = json.dumps(event, ensure_ascii=False, sort_keys=True)
+            event["hash"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(event, ensure_ascii=False) + "\n")
             self._last_hash = event["hash"]
@@ -82,6 +82,12 @@ class AuditLog:
             rows.append(item)
         return rows[-limit:]
 
+    def reset(self) -> None:
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text("", encoding="utf-8")
+            self._last_hash = "genesis"
+
     def intact(self) -> bool:
         prev = "genesis"
         if not self.path.exists():
@@ -89,7 +95,10 @@ class AuditLog:
         for line in self.path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
-            item = json.loads(line)
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                return False
             expected_prev = item.get("prev_hash")
             if expected_prev != prev:
                 return False

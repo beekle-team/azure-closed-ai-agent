@@ -60,7 +60,7 @@ def _children(http: httpx.Client, headers: dict[str, str], url: str, source_syst
     for raw in response.json().get("value") or []:
         name = str(raw.get("name") or "").strip()
         item_id = str(raw.get("id") or "")
-        if not name or raw.get("folder") or not item_id:
+        if not name or not item_id or "folder" in raw:
             continue
         web_url = str(raw.get("webUrl") or "")
         parent = raw.get("parentReference") or {}

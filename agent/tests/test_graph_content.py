@@ -57,7 +57,7 @@ def test_pull_graph_reads_content() -> None:
                 },
             )
         if path.endswith("/items/file-1/content"):
-            return httpx.Response(200, content=b"OneDrive の本文。保険は契約管理部。")
+            return httpx.Response(200, content="OneDrive の本文。保険は契約管理部。".encode())
         if path.endswith("/items/sp-1/content"):
             return httpx.Response(200, content=_docx("SharePoint の本文。リンクを知っている全員は使わない。"))
         return httpx.Response(404, text=path)

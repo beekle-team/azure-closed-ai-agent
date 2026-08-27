@@ -124,6 +124,11 @@ class ApprovalStore:
             self._save()
         return approval
 
+    def reset(self) -> None:
+        with self._lock:
+            self._items = {}
+            self._save()
+
     def usable_for(self, *, principal: Principal, question: str, skill_id: str = "") -> Approval | None:
         cutoff = _now() - timedelta(hours=1)
         for item in self._items.values():
