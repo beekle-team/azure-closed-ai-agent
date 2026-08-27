@@ -22,6 +22,7 @@ make up
 
 初期ユーザーは `admin@example.com` / `password`。本番では変える。
 まずはチャット。口伝を引けるだけでも使える。
+ナレッジは部署が rules と口伝を持つ。全社規程は組織側。部署をまたいで混ぜない。
 スキルを回すと、ブラウザから書類チェックが動く。
 出張、稟議、契約、投資、与信、貿易、コンプラ。大手の現場でもそのまま差し替えられる工程を入れた。
 
@@ -35,6 +36,9 @@ Teams / メール / ブラウザ
               ├── Search Service
               └── Azure OpenAI
 ```
+
+手元の Azure は公式エミュレータ。`make up` で Azurite（Blob / Queue）。Service Bus は `make up-emulators`。
+閉域（VNet / Private Endpoint）はエミュレータでは見ない。Jumpbox から見る。
 
 `make bootstrap` が [laravel-react-docker-template](https://github.com/beekle-team/laravel-react-docker-template) を clone し、`admin-overlay/` を載せる。
 Azure は `infra/terraform`。構成は `docs/architecture.md`。

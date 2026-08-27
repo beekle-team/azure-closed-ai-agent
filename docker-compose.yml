@@ -76,12 +76,20 @@ services:
       AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
       AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}
       AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-10-21}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;}
+      AZURE_BLOB_CONTAINER: corpus
+      AZURE_INGEST_QUEUE: ingest
+      AZURE_SERVICEBUS_CONNECTION_STRING: ${AZURE_SERVICEBUS_CONNECTION_STRING:-}
+      AZURE_SERVICEBUS_QUEUE: ingest
+      INGEST_APPLY_INLINE: "true"
     volumes:
       - ./agent:/app
     depends_on:
       neo4j:
         condition: service_healthy
       admin-nginx:
+        condition: service_started
+      azurite:
         condition: service_started
     labels:
       - traefik.enable=true
@@ -143,6 +151,45 @@ services:
     networks:
       - edge
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.34.0
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --location /data --loose
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    networks:
+      - edge
+
+  mssql:
+    profiles: ["emulators"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: ${ACCEPT_EULA:-Y}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-ClosedAgent_Dev1!}
+    networks:
+      - edge
+
+  servicebus-emulator:
+    profiles: ["emulators"]
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    volumes:
+      - ./docker/servicebus/config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    ports:
+      - "5672:5672"
+      - "5300:5300"
+    environment:
+      SQL_SERVER: mssql
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-ClosedAgent_Dev1!}
+      ACCEPT_EULA: ${ACCEPT_EULA:-Y}
+      EMULATOR_HTTP_PORT: 5300
+    depends_on:
+      - mssql
+    networks:
+      - edge
+
 networks:
   edge:
     driver: bridge
@@ -150,3 +197,4 @@ networks:
 volumes:
   postgres-data:
   neo4j-data:
+  azurite-data:

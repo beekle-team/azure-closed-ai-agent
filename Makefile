@@ -1,4 +1,4 @@
-.PHONY: bootstrap up down logs agent-test seed
+.PHONY: bootstrap up up-emulators down logs agent-test seed
 
 bootstrap:
 	test -f .env || cp .env.example .env
@@ -14,6 +14,9 @@ bootstrap:
 
 up:
 	docker compose up -d --build
+
+up-emulators:
+	docker compose --profile emulators up -d --build
 
 down:
 	docker compose down

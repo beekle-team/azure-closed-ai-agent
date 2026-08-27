@@ -16,6 +16,10 @@ Blob が原本の正本。
 Neo4j が関係の正本。
 部門、規程、手順、口伝、スキルのつながりは、ユーザー表に正規化しない。
 
+ナレッジの正本は、部署が rules と口伝を持つ形である。
+全社は規程だけを持つ。質問から部署を切り、その部署の HAS_RULE / HAS_TACIT を辿る。
+他部署のルールは混ぜない。口伝はマニュアルより現場の正本として扱う。
+
 Azure AI Search（ローカルでは全文インデックス）が文言の正本。
 見出し単位で引き、グラフと構造化データと足す。
 
@@ -40,8 +44,9 @@ Search Service が全文、グラフ、決裁表、スキルを足して、根�
 出張、稟議、契約、投資、与信、貿易、コンプラがサンプルである。
 送信・発注・削除・公開は、承認待ちで止まる。
 
-原本の更新は `/v1/ingest` が文書庫へ書き、全文とグラフを更新する。
-Azure では Service Bus の ingest キューが同じ仕事をする。
+原本の更新は `/v1/ingest` が文書庫へ書き、ingest キュー経由で全文とグラフを更新する。
+手元では Azurite が Blob と Queue。Service Bus emulator を足すと、本番と同じ AMQP クライアントを踏める。
+VNet と Private Endpoint はエミュレータには無い。
 
 課金は FastAPI が Laravel の `/api/internal/agent-access` と `/api/internal/usage` を呼ぶ。
 枠が無ければ止める。
