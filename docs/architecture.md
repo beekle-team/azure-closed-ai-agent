@@ -3,6 +3,7 @@
 入口は Traefik。
 ホストで仕事を分ける。`admin.localhost` は Laravel + Inertia、`agent.localhost` は FastAPI。
 会話画面は Inertia が描き、ブラウザから FastAPI の `/v1/chat` を呼ぶ。
+Teams とメールも同じ Orchestrator に入る。入口だけが違う。
 
 ## 正本の分け方
 
@@ -19,40 +20,42 @@ Azure AI Search（ローカルでは全文インデックス）が文言の正�
 見出し単位で引き、グラフと構造化データと足す。
 
 FastAPI が推論と実行の正本。
-検索計画、承認で止める条件、スキルの実行は、Laravel に渗ませない。
+検索計画、承認で止める条件、スキルの実行は、Laravel に混ぜない。
 
-管理画面と課金を Laravel に寄せ、ドメイン処理を別プロセスに出す線は、業務システムと同じである。
+## 質問のとき、Orchestrator は DB を直接叩かない
 
-## リクエストの流れ
+意図を分けて検索計画を作り、Search Service に渡す。
+Search Service が全文、グラフ、決裁表、スキルを足して、根拠と欠けているものを返す。
+足りなければ計画を直してもう一度探す。まだ足りなければ、足りないものを書いて止める。
 
-1. 利用者が社内AIチャットに質問する
-2. Orchestrator が検索計画を立てる。関係、全文、決裁表、スキルのどれを見るか
-3. Search Service（Retrieval Facade）が経路を引き、順位を足す
-4. FastAPI が Laravel の `/api/internal/agent-access` を呼び、組織と残枠を見る
-5. 枠が無ければ止める
-6. スキルを回せと言われたときは、口伝込みの手順を実行する。送信は承認待ち
-7. それ以外は Azure OpenAI に根拠を渡して答える
-8. 使ったトークンを Laravel の `/api/internal/usage` に書く
+```json
+{
+  "intent": "tacit_lookup",
+  "retrieval_modes": ["keyword", "graph", "skills"],
+  "required_evidence_type": "tacit"
+}
+```
 
-原本を足すときは `/v1/ingest` が文書庫へ書き、全文とグラフを更新する。
+スキルを回せと言われたときは、口伝込みの手順を実行する。
+送信・発注・削除・公開は、承認待ちで止まる。
+
+原本の更新は `/v1/ingest` が文書庫へ書き、全文とグラフを更新する。
 Azure では Service Bus の ingest キューが同じ仕事をする。
 
-## Azure 閉域
+課金は FastAPI が Laravel の `/api/internal/agent-access` と `/api/internal/usage` を呼ぶ。
+枠が無ければ止める。
 
-`infra/terraform` は次を立てる。
+## Azure に出すもの
 
-- VNet と NSG
-- Azure OpenAI の Private Endpoint
-- Key Vault の Private Endpoint
-- Blob Storage の Private Endpoint
-- Azure AI Search の Private Endpoint
-- Service Bus（Premium）の Private Endpoint
-- Container Apps Environment（内部 LB）
-- FastAPI 用 Container App
-- Laravel 用 Container App
-- Neo4j 用 Container Instance（VNet 内、公開IPなし）
-- PostgreSQL Flexible Server（VNet 統合）
-- Log Analytics
+`infra/terraform` が立てる。
+
+VNet、Azure OpenAI、Key Vault、Blob、AI Search、Service Bus を Private Endpoint で閉じる。
+Container Apps は内部ロードバランサ。
+Neo4j は VNet 内の Container Instance。
+PostgreSQL は Flexible Server の VNet 統合。
 
 公開インターネットへ出るのは、イメージを初めて引くときだけである。
 `enable_nat_gateway` を後から切れば、それも止められる。
+
+なぜ実行基盤を自前にするかは [self-host.md](self-host.md)。
+立て方の注意は [../infra/terraform/README.md](../infra/terraform/README.md)。

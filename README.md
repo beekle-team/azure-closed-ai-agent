@@ -1,45 +1,13 @@
 # Azure閉域AIエージェント
 
-Microsoft 365 と Entra と Azure OpenAI はそのまま使う。
-エージェントのループ、業務の関係、承認とログは FastAPI とグラフDBで持つ。
-ユーザー、組織、課金、管理画面は Laravel と PostgreSQL に置く。
+Microsoft 365 と Azure を既に使っている組織向けのテンプレートである。
+Entra、Azure OpenAI、Teams、VNet は顧客が持っている。
+この箱に入るのは、口伝をスキルにして回す実行基盤である。
 
-入口は Traefik、画面は [laravel-react-docker-template](https://github.com/beekle-team/laravel-react-docker-template) の Inertia、推論は FastAPI、関係は Neo4j。
-サンプルの中身は、総合商社の社内AIチャットである。マニュアルに無い口伝をスキルにして回す。
+スキルは Markdown、ハーネスは FastAPI、画面は Laravel の Inertia。
+モデルは Azure OpenAI に残し、ループは Container Apps の中で回す。
 
-Copilot Studio や Azure AI Foundry のマネージドエージェントは、SharePoint を検索して答える仕事には向く。
-規程と組織と案件の関係をたどる、実行の前に人の承認を挟む、トークン課金を自前の口座に載せる、といった仕事は、ループを自前で持った方が後から変えられる。
-
-## 誰向けか
-
-Microsoft 環境の情シス、またはその顧客に閉域のAIエージェントを配りたい開発会社。
-「Copilot を入れたが、業務の実行と課金まで届かない」が起点になる。
-
-## 構成
-
-```
-ブラウザ / Teams
-        │
-     Traefik
-        │
-        ├── admin.localhost  → Laravel + Inertia
-        │                      社内AIチャット、利用状況、ユーザー、課金
-        │                      会話画面は FastAPI の /v1 を呼ぶ
-        │
-        └── agent.localhost  → FastAPI
-                               Orchestrator が検索計画を立てる
-                                 │
-                                 ├── Search Service
-                                 │     グラフ / 全文 / 決裁・与信
-                                 ├── Skills（口伝を手順化）
-                                 ├── Blob（原本）
-                                 └── Azure OpenAI
-```
-
-原本は Blob、関係はグラフ、文言は全文検索、口座は PostgreSQL。
-FastAPI はユーザー表を持たない。利用のたびに Laravel の内部APIへ問い合わせる。
-
-## ローカルで動かす
+## 箱を開ける
 
 ```bash
 cp .env.example .env
@@ -49,45 +17,49 @@ make up
 
 | URL | 中身 |
 | --- | --- |
-| http://admin.localhost/chat | 社内AIチャット (Inertia) |
-| http://admin.localhost/usage | 利用状況 |
-| http://agent.localhost/docs | エージェント API |
-| http://admin.localhost:8025 | Mailpit |
+| http://admin.localhost/chat | 社内AIチャット |
+| http://admin.localhost/skills | スキル一覧 |
+| http://admin.localhost/usage | 利用枠 |
+| http://agent.localhost/docs | ハーネスの API |
 
 初期ユーザーは `admin@example.com` / `password`。
-聞き方の例は `docs/sample-shosha.md`。
+ローカル用なので、公開環境では必ず変える。
 
-Azure へ出すときは `infra/terraform` を使う。
-VNet、Private Endpoint、Azure OpenAI、AI Search、Blob、Service Bus、Key Vault、Container Apps、Neo4j 用 ACI までを一式で立てる。
+最初のゴールは、業務を1つスキル化して回すこと。
+架空の総合商社サンプルでは、出張と事業投資が動く。
 
-## Copilot で足りる仕事、このテンプレが要る仕事
+Azure へ出すときは `infra/terraform`。
+説明の入口は [docs/README.md](docs/README.md)。
 
-社内の Word と Excel を検索して「あの資料どこ」と聞くだけなら、Microsoft 365 Copilot の方が早い。
+## 構成
 
-このテンプレが要るのは、次のどれかが業務要件になったときである。
+```
+Teams / メール / ブラウザ
+        │
+     Traefik
+        │
+        ├── Laravel + Inertia     画面、ユーザー、課金
+        └── FastAPI ハーネス
+              ├── スキル実行
+              ├── Search Service（グラフ / 全文 / 決裁）
+              ├── Teams / メールの受け口
+              └── Azure OpenAI
+```
 
-- 関係をたどる。「この規程を変えると、どの手順とどのシステムが影響するか」
-- 口伝を残す。画面に無い確認を、スキルとして量産する
-- 実行する。照会のあと依頼文まで進め、送信の直前で止める
-- 閉域にする。プロンプトもログも、公開インターネットへ出さない
-- 課金する。組織ごとの利用枠を、自前の管理画面で見る
-
-Entra、Azure OpenAI、VNet、Key Vault、Monitor はマネージドのまま使う。
-手放すと後で困るのは、エージェントの頭（ループ、グラフ、承認、課金）だけである。
+Microsoft に残すもの: Entra、OpenAI、VNet、Key Vault、Monitor、Teams、Exchange、AI Search。
+箱に残すもの: ループ、スキル、グラフ、承認、口座。
 
 ## ディレクトリ
 
 ```
-admin/                 laravel-react-docker-template を土台にした管理画面
-agent/                 FastAPI エージェント（API）
-agent/samples/shosha/  総合商社サンプル（原本・口伝・スキル）
-infra/terraform/       Azure 閉域の IaC
-docker/traefik/        入口
-docs/                  構成の補足
+admin-overlay/         Laravel 差分（チャット、スキル、課金）
+agent/                 ハーネスとサンプルスキル
+agent/samples/shosha/  架空の総合商社サンプル
+infra/terraform/       閉域の一式
+docs/                  公開ドキュメント
 ```
 
-`make bootstrap` が `laravel-react-docker-template` を `admin/` に clone し、課金と内部APIの差分を載せる。
-`admin/` の書き方は元テンプレのルールに従う。Service クラスは置かない。
+`make bootstrap` が [laravel-react-docker-template](https://github.com/beekle-team/laravel-react-docker-template) を clone し、差分を載せる。
 
 ## ライセンス
 
