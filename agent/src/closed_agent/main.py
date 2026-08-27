@@ -33,7 +33,7 @@ _ingest = IngestPipeline(settings.sample_root / "corpus", _facade.keyword, _faca
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "store": _ingest.store.kind, "bus": _ingest.bus.kind}
 
 
 @app.get("/")
@@ -87,6 +87,11 @@ def search_plan(q: str) -> dict[str, object]:
 @app.post("/v1/ingest")
 def ingest(payload: IngestRequest) -> dict[str, str]:
     return _ingest.ingest(path=payload.path, title=payload.title, body=payload.body, kind=payload.kind)
+
+
+@app.post("/v1/ingest/drain")
+def drain_ingest() -> dict[str, int]:
+    return {"applied": _ingest.drain()}
 
 
 @app.post("/v1/channels/teams", response_model=ChannelReplyResponse)
