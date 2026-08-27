@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     azure_servicebus_queue: str = "ingest"
     ingest_apply_inline: bool = True
     sample_root: Path = Path(__file__).resolve().parents[2] / "samples" / "office"
+    mailpit_url: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 1025
+    mail_from: str = "agent@localhost"
+    graph_access_token: str = ""
 
 
 settings = Settings()

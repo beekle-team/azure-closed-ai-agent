@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>閉域AIエージェント</title>
+  <style>
+    :root {
+      --bg: #12141a;
+      --panel: #1b1f29;
+      --ink: #eef1f6;
+      --muted: #9aa3b5;
+      --line: #2a3140;
+      --accent: #d7a14d;
+      --ok: #7dcea0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    header strong { color: var(--accent); font-weight: 600; }
+    header span { color: var(--muted); font-size: 13px; }
+    nav { display: flex; gap: 8px; padding: 12px 24px; }
+    nav button {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    nav button.active { color: var(--ink); border-color: var(--accent); }
+    main { padding: 0 24px 32px; }
+    .grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .log { min-height: 420px; max-height: 560px; overflow: auto; }
+    .msg { margin: 0 0 14px; }
+    .msg small { color: var(--muted); }
+    .msg p { margin: 4px 0 0; white-space: pre-wrap; line-height: 1.6; }
+    form.row { display: flex; gap: 8px; margin-top: 12px; }
+    input, textarea, select {
+      width: 100%;
+      background: #12141a;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    button.go {
+      background: var(--accent);
+      color: #1b1408;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #2a3140; color: var(--ok); font-size: 12px; }
+    .starter { display: block; width: 100%; text-align: left; margin: 0 0 8px; background: #12141a; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; }
+    .hidden { display: none; }
+    label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>閉域AIエージェント</strong> <span id="status">接続確認中</span></div>
+    <span>チャット・ナレッジ・メールは同じ Orchestrator</span>
+  </header>
+  <nav>
+    <button class="active" data-tab="chat">チャット</button>
+    <button data-tab="knowledge">ナレッジ</button>
+    <button data-tab="mail">メール</button>
+  </nav>
+  <main>
+    <section id="chat">
+      <div class="grid">
+        <aside class="panel">
+          <p class="chip">入口: ブラウザ</p>
+          <p style="color:var(--muted);font-size:13px">口伝と Microsoft 文書だけを根拠にする。</p>
+          <div id="starters"></div>
+        </aside>
+        <div class="panel">
+          <div class="log" id="log"></div>
+          <form class="row" id="chat-form">
+            <input id="question" placeholder="業務の聞き方で投げる" />
+            <button class="go" type="submit">送る</button>
+          </form>
+        </div>
+      </div>
+    </section>
+    <section id="knowledge" class="hidden">
+      <div class="panel" style="margin-bottom:16px">
+        <button class="go" id="reload-ms" type="button">Microsoft 文書を取り込む</button>
+        <span id="ms-result" style="margin-left:12px;color:var(--muted)"></span>
+      </div>
+      <div class="grid">
+        <form class="panel" id="ingest-form">
+          <label>題</label>
+          <input name="title" required placeholder="口伝の題" />
+          <label>本文</label>
+          <textarea name="body" rows="8" required placeholder="現場の正本"></textarea>
+          <label>系統</label>
+          <select name="kind">
+            <option value="tacit">口伝</option>
+            <option value="manual">規程 / マニュアル</option>
+          </select>
+          <label>出所</label>
+          <select name="source_system">
+            <option value="corpus">手元</option>
+            <option value="sharepoint">SharePoint</option>
+            <option value="teams">Teams</option>
+            <option value="outlook">Outlook</option>
+            <option value="onedrive">OneDrive</option>
+          </select>
+          <div style="margin-top:12px"><button class="go" type="submit">文書庫へ置く</button></div>
+        </form>
+        <div class="panel">
+          <table>
+            <thead><tr><th>出所</th><th>名前</th><th>種類</th><th>抜粋</th></tr></thead>
+            <tbody id="knowledge-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+    <section id="mail" class="hidden">
+      <div class="grid">
+        <form class="panel" id="mail-form">
+          <label>差出人</label>
+          <input name="sender" value="admin@example.com" />
+          <label>件名</label>
+          <input name="subject" required placeholder="口伝: 経理の締日 / 質問" />
+          <label>本文</label>
+          <textarea name="body" rows="8" required></textarea>
+          <p style="color:var(--muted);font-size:13px">件名が「口伝」で始まると取り込み。それ以外は質問。返信は Mailpit に出す。</p>
+          <button class="go" type="submit">メールとして流す</button>
+        </form>
+        <div class="panel">
+          <h3 style="margin-top:0">出したメール</h3>
+          <div id="outbox"></div>
+          <h3>Mailpit 受信</h3>
+          <div id="inbox"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const starters = [
+      "海外出張の申請、画面に出てこない確認事項は？",
+      "SharePoint のリンクを顧客メールに貼ってよいか",
+      "初めての取引先の与信ルートは？",
+      "Teams に貼ったファイルの正本はどこか",
+      "該非判定書を再輸出先に渡してよいか",
+    ];
+    const log = document.getElementById("log");
+    const startersEl = document.getElementById("starters");
+    starters.forEach((text) => {
+      const button = document.createElement("button");
+      button.className = "starter";
+      button.textContent = text;
+      button.onclick = () => ask(text);
+      startersEl.appendChild(button);
+    });
+
+    document.querySelectorAll("nav button").forEach((button) => {
+      button.onclick = () => {
+        document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
+        button.classList.add("active");
+        ["chat", "knowledge", "mail"].forEach((id) => {
+          document.getElementById(id).classList.toggle("hidden", id !== button.dataset.tab);
+        });
+        if (button.dataset.tab === "knowledge") loadKnowledge();
+        if (button.dataset.tab === "mail") loadMail();
+      };
+    });
+
+    async function health() {
+      const payload = await (await fetch("/health")).json();
+      document.getElementById("status").textContent =
+        `${payload.llm} / ${payload.store} / ナレッジ ${payload.knowledge} 件`;
+    }
+
+    function addMsg(role, text, meta) {
+      const wrap = document.createElement("div");
+      wrap.className = "msg";
+      wrap.innerHTML = `<small>${role}</small><p></p>`;
+      wrap.querySelector("p").textContent = text + (meta ? `\n${meta}` : "");
+      log.appendChild(wrap);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function ask(text) {
+      addMsg("あなた", text);
+      const response = await fetch("/v1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: 1, question: text }),
+      });
+      const payload = await response.json();
+      const cites = (payload.citations || []).map((c) => `${c.source}:${c.name}`).join(" · ");
+      addMsg("社内AI", payload.answer, [payload.status, payload.intent, cites].filter(Boolean).join(" | "));
+    }
+
+    document.getElementById("chat-form").onsubmit = (event) => {
+      event.preventDefault();
+      const input = document.getElementById("question");
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      ask(text);
+    };
+
+    async function loadKnowledge() {
+      const items = await (await fetch("/v1/knowledge")).json();
+      document.getElementById("knowledge-body").innerHTML = items.map((item) =>
+        `<tr><td class="chip">${item.source_system}</td><td>${item.name}</td><td>${item.kind}</td><td>${item.excerpt}</td></tr>`
+      ).join("");
+    }
+
+    document.getElementById("ingest-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target));
+      await fetch("/v1/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: data.title + ".md",
+          title: data.title,
+          body: data.body,
+          kind: data.kind,
+          source_system: data.source_system,
+        }),
+      });
+      event.target.reset();
+      loadKnowledge();
+      health();
+    };
+
+    document.getElementById("reload-ms").onclick = async () => {
+      const payload = await (await fetch("/v1/ingest/microsoft", { method: "POST" })).json();
+      document.getElementById("ms-result").textContent =
+        `${payload.mode} / ${payload.count} 件`;
+      loadKnowledge();
+      health();
+    };
+
+    document.getElementById("mail-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target));
+      const payload = await (await fetch("/v1/mail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })).json();
+      addMail("outbox", `${payload.would_send}\n${payload.text}`);
+      loadMail();
+    };
+
+    function addMail(id, text) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+    }
+
+    async function loadMail() {
+      const out = await (await fetch("/v1/mail/outbox")).json();
+      document.getElementById("outbox").innerHTML = out.map((m) =>
+        `<p><small>${m.via} ${m.to}</small><br>${m.subject}</p>`
+      ).join("") || "<p>まだ無い</p>";
+      const inbox = await (await fetch("/v1/mail/inbox")).json();
+      document.getElementById("inbox").innerHTML = inbox.map((m) =>
+        `<p><small>${m.from}</small><br>${m.subject}</p>`
+      ).join("") || "<p>Mailpit にまだ無い</p>";
+    }
+
+    health();
+  </script>
+</body>
+</html>

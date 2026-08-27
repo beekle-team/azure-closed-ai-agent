@@ -1,3 +1,4 @@
+from closed_agent.channels.outbound import send_mail
 from closed_agent.channels.types import ChannelReply, InboundMessage
 from closed_agent.ingest.pipeline import IngestPipeline
 from closed_agent.orchestrator import run_chat
@@ -40,9 +41,11 @@ def _reply(message: InboundMessage, text: str, response: ChatResponse | None = N
     if message.channel == "teams":
         would = f"Teams の会話 {message.reply_to or '(新規)'} に返す"
     elif message.channel == "mail":
-        would = f"{message.reply_to or '差出人'} へ返信する"
+        sent_to = message.reply_to or settings.mail_from
+        sent = send_mail(to=sent_to, subject=f"Re: {message.title or '社内AI'}", body=text)
+        would = f"{sent['via']} で {sent_to} へ出した"
         if response and response.status == "needs_approval":
-            would = "承認依頼メールを上司へ出す"
+            would = f"{sent['via']} で承認依頼を出した"
     else:
         would = "画面に出す"
     return ChannelReply(channel=message.channel, to=message.reply_to, text=text, would_send=would)

@@ -45,6 +45,13 @@ Search Service が全文、グラフ、決裁表、スキルを足して、根�
 送信・発注・削除・公開は、承認待ちで止まる。
 
 原本の更新は `/v1/ingest` が文書庫へ書き、ingest キュー経由で全文とグラフを更新する。
+起動時に文書庫を読み直し、検索面を戻す。
+Microsoft 365 の文書は Graph から取る。トークンが無い手元では SharePoint / Teams / Outlook / OneDrive / Purview の見本を入れる。
+公式ドキュメントそのもの（learn.microsoft.com）は入れない。入れるのはテナントの中の文書である。
+
+メールと Teams は入口だけが違う。質問も口伝の取り込みも、同じ Orchestrator に入る。
+手元の返信は Mailpit。本番の送信は Graph のメールである。
+
 手元では Azurite が Blob と Queue。Service Bus emulator を足すと、本番と同じ AMQP クライアントを踏める。
 VNet と Private Endpoint はエミュレータには無い。
 

@@ -25,6 +25,12 @@ KEYWORDS = (
     "スキル",
     "暗黙知",
     "契約管理",
+    "SharePoint",
+    "Teams",
+    "Outlook",
+    "OneDrive",
+    "Purview",
+    "Graph",
 )
 
 
@@ -51,10 +57,36 @@ class KeywordIndex:
             for path in sorted(corpus_dir.glob("*.md")):
                 self.add(path.stem, path.read_text(encoding="utf-8"), kind=_kind(path.stem))
 
-    def add(self, name: str, body: str, kind: str = "Document") -> None:
-        self.docs = [doc for doc in self.docs if doc["name"] != name]
-        for chunk in _chunks(name, body, kind):
+    def add(self, name: str, body: str, kind: str = "Document", source_system: str = "corpus") -> None:
+        self.docs = [doc for doc in self.docs if doc["name"] != name and not doc["name"].startswith(f"{name} / ")]
+        for chunk in _chunks(name, body, kind, source_system):
             self.docs.append(chunk)
+
+    def catalog(self) -> list[dict[str, str]]:
+        seen: dict[str, dict[str, str]] = {}
+        for doc in self.docs:
+            root = doc["name"].split(" / ", 1)[0]
+            if root in seen:
+                continue
+            seen[root] = {
+                "name": root,
+                "kind": doc["kind"],
+                "source_system": doc.get("source_system") or "corpus",
+                "excerpt": doc["text"][:180].replace("\n", " "),
+            }
+        return list(seen.values())
+
+    def get(self, name: str) -> dict[str, str] | None:
+        body = [doc["text"] for doc in self.docs if doc["name"] == name or doc["name"].startswith(f"{name} / ")]
+        if not body:
+            return None
+        first = next(doc for doc in self.docs if doc["name"] == name or doc["name"].startswith(f"{name} / "))
+        return {
+            "name": name,
+            "kind": first["kind"],
+            "source_system": first.get("source_system") or "corpus",
+            "body": "\n\n".join(body),
+        }
 
     def search(self, question: str, limit: int = 6) -> list[RetrievalHit]:
         query = tokenize(question)
@@ -73,6 +105,7 @@ class KeywordIndex:
                     source="search",
                     text=doc["text"][:400],
                     score=float(len(overlap)),
+                    source_system=doc.get("source_system") or "",
                 )
             )
         scored.sort(key=lambda hit: hit.score, reverse=True)
@@ -83,12 +116,19 @@ def _kind(stem: str) -> str:
     return "TacitKnowledge" if stem.startswith("口伝") else "Document"
 
 
-def _chunks(name: str, body: str, kind: str) -> list[dict[str, str]]:
+def _chunks(name: str, body: str, kind: str, source_system: str = "corpus") -> list[dict[str, str]]:
     parts = [part.strip() for part in body.split("\n## ") if part.strip()]
     if len(parts) <= 1:
-        return [{"name": name, "kind": kind, "text": body}]
+        return [{"name": name, "kind": kind, "text": body, "source_system": source_system}]
     chunks = []
     for index, part in enumerate(parts):
         heading = part.split("\n", 1)[0].lstrip("# ").strip()
-        chunks.append({"name": f"{name} / {heading}" if index else name, "kind": kind, "text": part})
+        chunks.append(
+            {
+                "name": f"{name} / {heading}" if index else name,
+                "kind": kind,
+                "text": part,
+                "source_system": source_system,
+            }
+        )
     return chunks

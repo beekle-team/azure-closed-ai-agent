@@ -50,3 +50,21 @@ class IngestRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=20000)
     kind: Literal["manual", "tacit"] = "tacit"
+    source_system: str = "corpus"
+    source_url: str = ""
+
+
+class KnowledgeItem(BaseModel):
+    name: str
+    kind: str
+    source_system: str
+    excerpt: str = ""
+    body: str | None = None
+    source_url: str = ""
+
+
+class MailSendRequest(BaseModel):
+    sender: str = "admin@example.com"
+    subject: str
+    body: str
+    intent: Literal["ask", "ingest", "approve"] | None = None

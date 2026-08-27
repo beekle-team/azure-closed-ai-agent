@@ -15,6 +15,7 @@ def test_root_is_api() -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert response.json()["service"] == "closed-agent"
+    assert response.json()["app"] == "/app"
 
 
 def test_skills_endpoint() -> None:

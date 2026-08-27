@@ -10,6 +10,7 @@ class RetrievalHit:
     text: str = ""
     score: float = 0.0
     path: str = ""
+    source_system: str = ""
 
 
 @dataclass

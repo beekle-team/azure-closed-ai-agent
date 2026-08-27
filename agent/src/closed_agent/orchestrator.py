@@ -23,7 +23,8 @@ def _evidence_line(hit: RetrievalHit) -> str:
     excerpt = (hit.text or hit.reason or hit.path).replace("\n", " ").strip()
     if len(excerpt) > 240:
         excerpt = excerpt[:240] + "…"
-    return f"- [{hit.source}] {hit.name} ({hit.kind}) {excerpt}"
+    origin = f"{hit.source_system} " if hit.source_system else ""
+    return f"- [{hit.source}] {origin}{hit.name} ({hit.kind}) {excerpt}"
 
 
 def _citations(hits: list[RetrievalHit]) -> list[Citation]:

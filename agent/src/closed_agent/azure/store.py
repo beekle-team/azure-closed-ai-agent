@@ -13,6 +13,8 @@ class DocumentStore(Protocol):
 
     def get(self, path: str) -> str: ...
 
+    def list_documents(self) -> list[tuple[str, str]]: ...
+
 
 class FilesystemStore:
     kind = "filesystem"
@@ -29,6 +31,11 @@ class FilesystemStore:
     def get(self, path: str) -> str:
         target = self.root / Path(path).name
         return target.read_text(encoding="utf-8")
+
+    def list_documents(self) -> list[tuple[str, str]]:
+        if not self.root.exists():
+            return []
+        return [(path.name, path.read_text(encoding="utf-8")) for path in sorted(self.root.glob("*.md"))]
 
 
 class AzureBlobStore:
@@ -58,6 +65,9 @@ class AzureBlobStore:
         data = self._container.download_blob(name).readall()
         return data.decode("utf-8")
 
+    def list_documents(self) -> list[tuple[str, str]]:
+        return [(blob.name, self.get(blob.name)) for blob in self._container.list_blobs()]
+
 
 class MemoryStore:
     kind = "memory"
@@ -72,6 +82,9 @@ class MemoryStore:
 
     def get(self, path: str) -> str:
         return self._items[Path(path).name]
+
+    def list_documents(self) -> list[tuple[str, str]]:
+        return list(self._items.items())
 
 
 def build_store(corpus_dir: Path) -> DocumentStore:
