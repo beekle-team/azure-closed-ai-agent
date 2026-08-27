@@ -11,6 +11,7 @@ class InboundMessage:
     intent: Literal["ask", "ingest", "approve"] = "ask"
     title: str = ""
     approval_id: str = ""
+    identity: str = ""
 
 
 @dataclass

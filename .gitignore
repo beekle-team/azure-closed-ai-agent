@@ -26,3 +26,4 @@ admin/src/storage/framework/views/*
 .vscode/
 .DS_Store
 agent/samples/office/imported/
+agent/data/

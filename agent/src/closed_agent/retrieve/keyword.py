@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from closed_agent.acl import classify
 from closed_agent.retrieve.types import RetrievalHit
 
 KEYWORDS = (
@@ -57,9 +58,25 @@ class KeywordIndex:
             for path in sorted(corpus_dir.glob("*.md")):
                 self.add(path.stem, path.read_text(encoding="utf-8"), kind=_kind(path.stem))
 
-    def add(self, name: str, body: str, kind: str = "Document", source_system: str = "corpus") -> None:
+    def add(
+        self,
+        name: str,
+        body: str,
+        kind: str = "Document",
+        source_system: str = "corpus",
+        department: str = "",
+        classification: str = "",
+        org_wide: bool | None = None,
+    ) -> None:
+        acl = classify(name, kind, source_system)
+        meta = {
+            "department": department or acl.department,
+            "classification": classification or acl.classification,
+            "org_wide": acl.org_wide if org_wide is None else org_wide,
+        }
         self.docs = [doc for doc in self.docs if doc["name"] != name and not doc["name"].startswith(f"{name} / ")]
         for chunk in _chunks(name, body, kind, source_system):
+            chunk.update(meta)
             self.docs.append(chunk)
 
     def catalog(self) -> list[dict[str, str]]:
@@ -72,6 +89,8 @@ class KeywordIndex:
                 "name": root,
                 "kind": doc["kind"],
                 "source_system": doc.get("source_system") or "corpus",
+                "department": str(doc.get("department") or ""),
+                "classification": str(doc.get("classification") or ""),
                 "excerpt": doc["text"][:180].replace("\n", " "),
             }
         return list(seen.values())
@@ -85,6 +104,8 @@ class KeywordIndex:
             "name": name,
             "kind": first["kind"],
             "source_system": first.get("source_system") or "corpus",
+            "department": str(first.get("department") or ""),
+            "classification": str(first.get("classification") or ""),
             "body": "\n\n".join(body),
         }
 
@@ -106,6 +127,9 @@ class KeywordIndex:
                     text=doc["text"][:400],
                     score=float(len(overlap)),
                     source_system=doc.get("source_system") or "",
+                    department=str(doc.get("department") or ""),
+                    classification=str(doc.get("classification") or ""),
+                    org_wide=bool(doc.get("org_wide")),
                 )
             )
         scored.sort(key=lambda hit: hit.score, reverse=True)

@@ -4,8 +4,9 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    user_id: int = 1
+    user_id: int | None = None
     question: str = Field(min_length=1, max_length=4000)
+    approval_id: str | None = None
 
 
 class Citation(BaseModel):
@@ -16,7 +17,7 @@ class Citation(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    status: Literal["answered", "needs_approval", "quota_exceeded", "skill_ran", "cannot_answer"]
+    status: Literal["answered", "needs_approval", "quota_exceeded", "skill_ran", "cannot_answer", "forbidden", "blocked"]
     answer: str
     citations: list[Citation] = []
     remaining_tokens: int | None = None
@@ -34,8 +35,9 @@ class ApprovalRequest(BaseModel):
 
 
 class SkillRunRequest(BaseModel):
-    user_id: int = 1
+    user_id: int | None = None
     inputs: dict[str, str] = {}
+    approval_id: str = ""
 
 
 class ChannelReplyResponse(BaseModel):

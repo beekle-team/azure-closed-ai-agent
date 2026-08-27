@@ -11,6 +11,9 @@ class RetrievalHit:
     score: float = 0.0
     path: str = ""
     source_system: str = ""
+    department: str = ""
+    classification: str = ""
+    org_wide: bool = False
 
 
 @dataclass

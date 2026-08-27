@@ -1,14 +1,20 @@
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from closed_agent.acl import acl_for_ingest, can_read, can_use_skill, can_write, classify
+from closed_agent.approvals import approval_store
+from closed_agent.audit import audit_log
+from closed_agent.auth import require_auditor, require_principal, require_webhook
 from closed_agent.billing import QuotaExceededError
 from closed_agent.channels.dispatch import dispatch
 from closed_agent.channels.mail import parse_mail
 from closed_agent.channels.outbound import OUTBOX, list_inbox
 from closed_agent.channels.teams import parse_teams
+from closed_agent.dlp import scan
+from closed_agent.identity import Principal
 from closed_agent.ingest.pipeline import IngestPipeline
 from closed_agent.knowledge.microsoft import import_microsoft_knowledge
 from closed_agent.llm import llm_backend, llm_model
@@ -28,7 +34,7 @@ from closed_agent.skills.runner import run_skill
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-app = FastAPI(title="Closed AI Agent", version="0.3.0")
+app = FastAPI(title="Closed AI Agent", version="0.4.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
@@ -54,6 +60,7 @@ def health() -> dict[str, object]:
         "model": llm_model(),
         "knowledge": len(_facade.keyword.catalog()),
         "app": "/app",
+        "auth": settings.auth_mode,
     }
 
 
@@ -67,23 +74,73 @@ def console() -> FileResponse:
     return FileResponse(STATIC_DIR / "console.html")
 
 
+@app.get("/v1/me")
+def me(principal: Principal = Depends(require_principal)) -> dict[str, object]:
+    return {
+        "user_id": principal.user_id,
+        "email": principal.email,
+        "name": principal.name,
+        "department": principal.department,
+        "clearance": principal.clearance,
+        "roles": sorted(principal.roles),
+        "can_approve": principal.can_approve(),
+        "can_audit": principal.can_audit(),
+    }
+
+
 @app.post("/v1/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest) -> ChatResponse:
+async def chat(payload: ChatRequest, principal: Principal = Depends(require_principal)) -> ChatResponse:
     try:
-        return await run_chat(payload.user_id, payload.question, facade=_facade)
+        return await run_chat(
+            principal.user_id,
+            payload.question,
+            facade=_facade,
+            principal=principal,
+            approval_id=payload.approval_id,
+            channel="web",
+        )
     except QuotaExceededError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
 
 
+@app.get("/v1/approvals")
+def list_approvals(principal: Principal = Depends(require_principal)) -> list[dict[str, str | int]]:
+    return [item.to_dict() for item in approval_store.list(principal=principal)]
+
+
 @app.post("/v1/approvals/{approval_id}")
-async def approve(approval_id: str, payload: ApprovalRequest) -> dict[str, str]:
-    if not payload.approved:
-        return {"approval_id": approval_id, "status": "rejected"}
-    return {"approval_id": approval_id, "status": "approved"}
+async def approve(
+    approval_id: str,
+    payload: ApprovalRequest,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, str]:
+    record = approval_store.get(approval_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="approval not found")
+    if not principal.can_approve():
+        audit_log.record(action="approval.decide", principal=principal, resource=approval_id, outcome="forbidden")
+        raise HTTPException(status_code=403, detail="承認する権限がありません")
+    result = ""
+    if payload.approved and record.skill_id:
+        skill = _facade.skills.get(record.skill_id)
+        if skill:
+            result = run_skill(skill)
+    decided = approval_store.decide(approval_id, principal=principal, approved=payload.approved, result=result)
+    if decided is None:
+        raise HTTPException(status_code=404, detail="approval not found")
+    if result:
+        approval_store.mark_executed(approval_id, result)
+        decided = approval_store.get(approval_id) or decided
+    audit_log.record(action="approval.decide", principal=principal, resource=approval_id, outcome=decided.status)
+    return {
+        "approval_id": decided.id,
+        "status": decided.status,
+        "result": decided.result,
+    }
 
 
 @app.get("/v1/skills")
-def list_skills() -> list[dict[str, str | bool]]:
+def list_skills(principal: Principal = Depends(require_principal)) -> list[dict[str, str | bool]]:
     return [
         {
             "id": skill.id,
@@ -92,76 +149,131 @@ def list_skills() -> list[dict[str, str | bool]]:
             "approval": skill.approval,
         }
         for skill in _facade.skills.skills
+        if can_use_skill(principal, skill)
     ]
 
 
 @app.post("/v1/skills/{skill_id}/run")
-def execute_skill(skill_id: str, payload: SkillRunRequest) -> dict[str, str]:
+def execute_skill(
+    skill_id: str,
+    payload: SkillRunRequest,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, str]:
     skill = _facade.skills.get(skill_id)
     if skill is None:
         raise HTTPException(status_code=404, detail="skill not found")
+    if not can_use_skill(principal, skill):
+        raise HTTPException(status_code=403, detail="このスキルを実行する部署ではありません")
     if skill.approval:
-        raise HTTPException(status_code=409, detail="approval required")
-    return {"skill_id": skill.id, "answer": run_skill(skill, payload.inputs)}
+        record = approval_store.get(payload.approval_id) if payload.approval_id else None
+        if record is None or record.status not in {"approved", "executed"} or record.skill_id != skill.id:
+            raise HTTPException(status_code=409, detail="approval required")
+    answer = run_skill(skill, payload.inputs)
+    if payload.approval_id:
+        approval_store.mark_executed(payload.approval_id, answer)
+    audit_log.record(action="skill.run", principal=principal, resource=skill.id, outcome="ok")
+    return {"skill_id": skill.id, "answer": answer}
 
 
 @app.get("/v1/search/plan")
-def search_plan(q: str) -> dict[str, object]:
-    return plan_search(q).to_dict()
+def search_plan(q: str, principal: Principal = Depends(require_principal)) -> dict[str, object]:
+    plan = plan_search(q)
+    payload = plan.to_dict()
+    payload["actor_department"] = principal.department
+    return payload
 
 
 @app.get("/v1/knowledge")
-def list_knowledge() -> list[dict[str, str]]:
-    return _facade.keyword.catalog()
+def list_knowledge(principal: Principal = Depends(require_principal)) -> list[dict[str, str]]:
+    visible = []
+    for item in _facade.keyword.catalog():
+        acl = classify(item["name"], item.get("kind") or "Document", item.get("source_system") or "")
+        if can_read(principal, acl):
+            visible.append(item)
+    audit_log.record(action="knowledge.list", principal=principal, resource="catalog", outcome="ok", detail=str(len(visible)))
+    return visible
 
 
 @app.get("/v1/knowledge/{name}")
-def get_knowledge(name: str) -> dict[str, str]:
+def get_knowledge(name: str, principal: Principal = Depends(require_principal)) -> dict[str, str]:
     item = _facade.keyword.get(name)
     if item is None:
         raise HTTPException(status_code=404, detail="knowledge not found")
+    acl = classify(item["name"], item.get("kind") or "Document", item.get("source_system") or "")
+    if not can_read(principal, acl):
+        audit_log.record(action="knowledge.read", principal=principal, resource=name, outcome="forbidden")
+        raise HTTPException(status_code=404, detail="knowledge not found")
+    audit_log.record(action="knowledge.read", principal=principal, resource=name, outcome="ok")
     return item
 
 
 @app.post("/v1/ingest")
-def ingest(payload: IngestRequest) -> dict[str, str]:
-    return _ingest.ingest(
+def ingest(payload: IngestRequest, principal: Principal = Depends(require_principal)) -> dict[str, str]:
+    dlp = scan(f"{payload.title}\n{payload.body}", source="ingest")
+    if dlp.blocked:
+        audit_log.record(action="ingest", principal=principal, resource=payload.title, outcome="blocked", detail=dlp.reason)
+        raise HTTPException(status_code=422, detail=dlp.reason)
+    acl = acl_for_ingest(title=payload.title, kind=payload.kind, source_system=payload.source_system, principal=principal)
+    if not can_write(principal, acl):
+        raise HTTPException(status_code=403, detail="この部署の文書庫へ書く権限がありません")
+    saved = _ingest.ingest(
         path=payload.path,
         title=payload.title,
         body=payload.body,
         kind=payload.kind,
         source_system=payload.source_system,
         source_url=payload.source_url,
+        department=acl.department,
+        classification=acl.classification,
     )
+    audit_log.record(action="ingest", principal=principal, resource=payload.title, outcome="ok")
+    return saved
 
 
 @app.post("/v1/ingest/microsoft")
-def ingest_microsoft() -> dict[str, object]:
-    return import_microsoft_knowledge(_ingest)
+def ingest_microsoft(principal: Principal = Depends(require_principal)) -> dict[str, object]:
+    if not principal.is_admin:
+        raise HTTPException(status_code=403, detail="Microsoft 文書の一括取り込みは管理者だけです")
+    result = import_microsoft_knowledge(_ingest)
+    audit_log.record(action="ingest.microsoft", principal=principal, resource="microsoft", outcome="ok", detail=str(result.get("count")))
+    return result
 
 
 @app.post("/v1/ingest/drain")
-def drain_ingest() -> dict[str, int]:
+def drain_ingest(principal: Principal = Depends(require_principal)) -> dict[str, int]:
+    if not principal.is_admin:
+        raise HTTPException(status_code=403, detail="取り込みキューの適用は管理者だけです")
     return {"applied": _ingest.drain()}
 
 
 @app.post("/v1/channels/teams", response_model=ChannelReplyResponse)
-async def teams_channel(payload: dict) -> ChannelReplyResponse:
+async def teams_channel(
+    payload: dict,
+    principal: Principal = Depends(require_principal),
+    _: None = Depends(require_webhook),
+) -> ChannelReplyResponse:
+    del principal
     reply = await dispatch(parse_teams(payload), facade=_facade, ingest=_ingest)
     return ChannelReplyResponse(channel=reply.channel, to=reply.to, text=reply.text, would_send=reply.would_send)
 
 
 @app.post("/v1/channels/mail", response_model=ChannelReplyResponse)
-async def mail_channel(payload: dict) -> ChannelReplyResponse:
+async def mail_channel(
+    payload: dict,
+    principal: Principal = Depends(require_principal),
+    _: None = Depends(require_webhook),
+) -> ChannelReplyResponse:
+    del principal
     reply = await dispatch(parse_mail(payload), facade=_facade, ingest=_ingest)
     return ChannelReplyResponse(channel=reply.channel, to=reply.to, text=reply.text, would_send=reply.would_send)
 
 
 @app.post("/v1/mail/send", response_model=ChannelReplyResponse)
-async def mail_send(payload: MailSendRequest) -> ChannelReplyResponse:
+async def mail_send(payload: MailSendRequest, principal: Principal = Depends(require_principal)) -> ChannelReplyResponse:
+    sender = principal.email if not principal.is_admin else (payload.sender or principal.email)
     message = parse_mail(
         {
-            "from": payload.sender,
+            "from": sender,
             "subject": payload.subject,
             "body": payload.body,
             "intent": payload.intent or "",
@@ -172,10 +284,24 @@ async def mail_send(payload: MailSendRequest) -> ChannelReplyResponse:
 
 
 @app.get("/v1/mail/outbox")
-def mail_outbox() -> list[dict[str, str]]:
-    return OUTBOX[-20:]
+def mail_outbox(principal: Principal = Depends(require_principal)) -> list[dict[str, str]]:
+    if principal.can_audit():
+        return OUTBOX[-20:]
+    return [item for item in OUTBOX[-20:] if item.get("to") == principal.email]
 
 
 @app.get("/v1/mail/inbox")
-def mail_inbox() -> list[dict[str, str]]:
-    return list_inbox()
+def mail_inbox(principal: Principal = Depends(require_principal)) -> list[dict[str, str]]:
+    items = list_inbox()
+    if principal.can_audit():
+        return items
+    return [item for item in items if principal.email in {item.get("from"), item.get("to")}]
+
+
+@app.get("/v1/audit")
+def list_audit(principal: Principal = Depends(require_principal)) -> dict[str, object]:
+    require_auditor(principal)
+    return {
+        "intact": audit_log.intact(),
+        "events": audit_log.list(limit=200),
+    }

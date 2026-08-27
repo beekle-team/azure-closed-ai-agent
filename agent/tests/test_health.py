@@ -20,7 +20,7 @@ def test_root_is_api() -> None:
 
 def test_skills_endpoint() -> None:
     client = TestClient(app)
-    response = client.get("/v1/skills")
+    response = client.get("/v1/skills", headers={"Authorization": "Bearer local-admin"})
     assert response.status_code == 200
     ids = {item["id"] for item in response.json()}
     assert "trip-precheck" in ids

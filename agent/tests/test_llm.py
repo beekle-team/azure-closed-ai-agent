@@ -15,6 +15,14 @@ def test_backend_is_mock_without_keys(monkeypatch) -> None:
     assert llm.llm_model() == "mock"
 
 
+def test_production_refuses_openrouter(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "openrouter_api_key", "sk-or-test")
+    monkeypatch.setattr(settings, "azure_openai_endpoint", "")
+    monkeypatch.setattr(settings, "azure_openai_api_key", "")
+    assert llm.llm_backend() == "blocked"
+
+
 def test_backend_prefers_openrouter(monkeypatch) -> None:
     monkeypatch.setattr(settings, "openrouter_api_key", "sk-or-test")
     monkeypatch.setattr(settings, "openrouter_model", "openai/gpt-4o-mini")

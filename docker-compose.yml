@@ -64,6 +64,10 @@ services:
       dockerfile: Dockerfile
     environment:
       APP_ENV: local
+      AUTH_MODE: ${AUTH_MODE:-local}
+      AGENT_TOKENS: ${AGENT_TOKENS:-}
+      CHANNEL_WEBHOOK_SECRET: ${CHANNEL_WEBHOOK_SECRET:-local-webhook}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
       SKIP_BILLING: "false"
       SAMPLE_ROOT: /app/samples/office
       CORS_ORIGINS: ${CORS_ORIGINS:-http://admin.localhost}

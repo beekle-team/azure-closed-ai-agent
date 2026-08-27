@@ -21,7 +21,7 @@ resource "azurerm_container_app" "admin" {
   template {
     container {
       name   = "admin"
-      image  = "nginx:alpine"
+      image  = var.admin_image
       cpu    = 0.25
       memory = "0.5Gi"
     }
@@ -52,9 +52,19 @@ resource "azurerm_container_app" "agent" {
   template {
     container {
       name   = "agent"
-      image  = "python:3.12-slim"
+      image  = var.agent_image
       cpu    = 0.5
       memory = "1Gi"
+
+      env {
+        name  = "APP_ENV"
+        value = "production"
+      }
+
+      env {
+        name  = "AUTH_MODE"
+        value = "local"
+      }
 
       env {
         name  = "AZURE_OPENAI_ENDPOINT"

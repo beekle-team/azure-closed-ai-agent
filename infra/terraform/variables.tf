@@ -50,3 +50,15 @@ variable "neo4j_password" {
   type      = string
   sensitive = true
 }
+
+variable "admin_image" {
+  type        = string
+  default     = "nginx:alpine"
+  description = "本番は Private ACR の管理画面イメージ。公開レジストリのまま出さない"
+}
+
+variable "agent_image" {
+  type        = string
+  default     = "python:3.12-slim"
+  description = "本番は Private ACR のエージェントイメージ。公開レジストリのまま出さない"
+}

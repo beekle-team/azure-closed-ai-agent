@@ -34,6 +34,8 @@ class IngestPipeline:
         kind: str,
         source_system: str = "corpus",
         source_url: str = "",
+        department: str = "",
+        classification: str = "",
     ) -> dict[str, str]:
         filename = Path(path).name
         if not filename.endswith(".md"):
@@ -47,6 +49,8 @@ class IngestPipeline:
                 kind=doc_kind,
                 source_system=source_system,
                 source_url=source_url,
+                department=department,
+                classification=classification,
             ),
         )
         self.bus.send(
@@ -66,6 +70,8 @@ class IngestPipeline:
             "store": self.store.kind,
             "bus": self.bus.kind,
             "source_system": source_system,
+            "department": department,
+            "classification": classification,
         }
 
     def drain(self, limit: int = 8) -> int:
@@ -81,7 +87,14 @@ class IngestPipeline:
             title, body, meta = parse_stored(text, name)
             kind = meta.get("kind") or ("TacitKnowledge" if title.startswith("口伝") else "Document")
             source_system = meta.get("source_system") or "corpus"
-            self.keyword.add(title, body, kind=kind, source_system=source_system)
+            self.keyword.add(
+                title,
+                body,
+                kind=kind,
+                source_system=source_system,
+                department=meta.get("department") or "",
+                classification=meta.get("classification") or "",
+            )
             self.graph.upsert_document(title, kind)
             applied += 1
         return applied
@@ -91,5 +104,12 @@ class IngestPipeline:
         title, body, meta = parse_stored(text, job["path"])
         kind = job.get("kind") or meta.get("kind") or "Document"
         source_system = job.get("source_system") or meta.get("source_system") or "corpus"
-        self.keyword.add(title or job["title"], body, kind=kind, source_system=source_system)
+        self.keyword.add(
+            title or job["title"],
+            body,
+            kind=kind,
+            source_system=source_system,
+            department=meta.get("department") or "",
+            classification=meta.get("classification") or "",
+        )
         self.graph.upsert_document(title or job["title"], kind)

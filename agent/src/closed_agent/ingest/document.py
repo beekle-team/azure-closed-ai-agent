@@ -13,7 +13,13 @@ def parse_stored(text: str, fallback_name: str) -> tuple[str, str, dict[str, str
         if raw == "":
             lines = lines[1:]
             continue
-        if ":" in raw and raw.split(":", 1)[0] in {"source_system", "source_url", "kind"}:
+        if ":" in raw and raw.split(":", 1)[0] in {
+            "source_system",
+            "source_url",
+            "kind",
+            "department",
+            "classification",
+        }:
             key, value = raw.split(":", 1)
             meta[key.strip()] = value.strip()
             lines = lines[1:]
@@ -22,10 +28,23 @@ def parse_stored(text: str, fallback_name: str) -> tuple[str, str, dict[str, str
     return title, "\n".join(lines).strip(), meta
 
 
-def render_stored(*, title: str, body: str, kind: str, source_system: str, source_url: str = "") -> str:
+def render_stored(
+    *,
+    title: str,
+    body: str,
+    kind: str,
+    source_system: str,
+    source_url: str = "",
+    department: str = "",
+    classification: str = "",
+) -> str:
     header = [f"# {title}", "", f"source_system: {source_system}", f"kind: {kind}"]
     if source_url:
         header.append(f"source_url: {source_url}")
+    if department:
+        header.append(f"department: {department}")
+    if classification:
+        header.append(f"classification: {classification}")
     header.append("")
     header.append(body.strip())
     return "\n".join(header) + "\n"

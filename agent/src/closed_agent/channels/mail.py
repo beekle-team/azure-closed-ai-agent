@@ -20,6 +20,7 @@ def parse_mail(payload: dict) -> InboundMessage:
         intent=intent if intent in {"ask", "ingest", "approve"} else "ask",
         title=subject or "メールからの口伝",
         approval_id=approval_id,
+        identity=sender,
     )
 
 

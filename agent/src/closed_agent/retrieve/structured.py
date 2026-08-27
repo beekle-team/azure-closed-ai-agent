@@ -23,6 +23,8 @@ class StructuredStore:
                         reason=f"{person['dept']} {person['title']}",
                         source="structured",
                         text=hay,
+                        department=person["dept"],
+                        classification="confidential",
                     )
                 )
         for route in self.data.get("routes", []):
@@ -34,6 +36,8 @@ class StructuredStore:
                         reason=route["when"],
                         source="structured",
                         text=route["steps"],
+                        department="与信室" if "与信" in route["name"] or "与信" in route["when"] else "営業部",
+                        classification="confidential" if "与信" in route["name"] or "与信" in route["when"] else "internal",
                     )
                 )
         for rule in self.data.get("credit_rules", []):
@@ -45,6 +49,8 @@ class StructuredStore:
                         reason=rule["detail"],
                         source="structured",
                         text=rule["detail"],
+                        department="与信室",
+                        classification="confidential",
                     )
                 )
         return hits[:limit]

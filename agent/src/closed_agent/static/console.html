@@ -13,6 +13,7 @@
       --line: #2a3140;
       --accent: #d7a14d;
       --ok: #7dcea0;
+      --bad: #e07a7a;
     }
     * { box-sizing: border-box; }
     body {
@@ -25,11 +26,14 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 16px;
       padding: 16px 24px;
       border-bottom: 1px solid var(--line);
     }
     header strong { color: var(--accent); font-weight: 600; }
     header span { color: var(--muted); font-size: 13px; }
+    .who { display: flex; gap: 8px; align-items: center; }
+    .who input { width: 220px; }
     nav { display: flex; gap: 8px; padding: 12px 24px; }
     nav button {
       background: transparent;
@@ -69,6 +73,7 @@
     th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
     th { color: var(--muted); font-weight: 500; }
     .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #2a3140; color: var(--ok); font-size: 12px; }
+    .chip.bad { color: var(--bad); }
     .starter { display: block; width: 100%; text-align: left; margin: 0 0 8px; background: #12141a; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; }
     .hidden { display: none; }
     label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
@@ -76,20 +81,29 @@
 </head>
 <body>
   <header>
-    <div><strong>閉域AIエージェント</strong> <span id="status">接続確認中</span></div>
-    <span>チャット・ナレッジ・メールは同じ Orchestrator</span>
+    <div>
+      <strong>閉域AIエージェント</strong>
+      <span id="status">接続確認中</span>
+      <div id="me" style="color:var(--muted);font-size:13px;margin-top:4px">トークンを入れて身元を開く</div>
+    </div>
+    <div class="who">
+      <input id="token" placeholder="local-admin / local-sales / local-hr" />
+      <button class="go" type="button" id="save-token">身元を開く</button>
+    </div>
   </header>
   <nav>
     <button class="active" data-tab="chat">チャット</button>
     <button data-tab="knowledge">ナレッジ</button>
     <button data-tab="mail">メール</button>
+    <button data-tab="approvals">承認</button>
+    <button data-tab="audit">監査</button>
   </nav>
   <main>
     <section id="chat">
       <div class="grid">
         <aside class="panel">
           <p class="chip">入口: ブラウザ</p>
-          <p style="color:var(--muted);font-size:13px">口伝と Microsoft 文書だけを根拠にする。</p>
+          <p style="color:var(--muted);font-size:13px">見える根拠は、開いた身元の部署と機密区分だけ。</p>
           <div id="starters"></div>
         </aside>
         <div class="panel">
@@ -111,7 +125,7 @@
           <label>題</label>
           <input name="title" required placeholder="口伝の題" />
           <label>本文</label>
-          <textarea name="body" rows="8" required placeholder="現場の正本"></textarea>
+          <textarea name="body" rows="8" required placeholder="現場の正本。契約書本文や与信点は置かない。"></textarea>
           <label>系統</label>
           <select name="kind">
             <option value="tacit">口伝</option>
@@ -129,7 +143,7 @@
         </form>
         <div class="panel">
           <table>
-            <thead><tr><th>出所</th><th>名前</th><th>種類</th><th>抜粋</th></tr></thead>
+            <thead><tr><th>出所</th><th>部署</th><th>区分</th><th>名前</th><th>抜粋</th></tr></thead>
             <tbody id="knowledge-body"></tbody>
           </table>
         </div>
@@ -139,12 +153,12 @@
       <div class="grid">
         <form class="panel" id="mail-form">
           <label>差出人</label>
-          <input name="sender" value="admin@example.com" />
+          <input name="sender" id="mail-sender" value="" readonly />
           <label>件名</label>
           <input name="subject" required placeholder="口伝: 経理の締日 / 質問" />
           <label>本文</label>
           <textarea name="body" rows="8" required></textarea>
-          <p style="color:var(--muted);font-size:13px">件名が「口伝」で始まると取り込み。それ以外は質問。返信は Mailpit に出す。</p>
+          <p style="color:var(--muted);font-size:13px">差出人は開いた身元。未知のメールは受けない。件名が「口伝」で始まると取り込み。</p>
           <button class="go" type="submit">メールとして流す</button>
         </form>
         <div class="panel">
@@ -153,6 +167,23 @@
           <h3>Mailpit 受信</h3>
           <div id="inbox"></div>
         </div>
+      </div>
+    </section>
+    <section id="approvals" class="hidden">
+      <div class="panel">
+        <table>
+          <thead><tr><th>状態</th><th>部署</th><th>質問</th><th></th></tr></thead>
+          <tbody id="approval-body"></tbody>
+        </table>
+      </div>
+    </section>
+    <section id="audit" class="hidden">
+      <div class="panel">
+        <p id="audit-intact" class="chip">監査チェーン</p>
+        <table>
+          <thead><tr><th>時刻</th><th>行為</th><th>人</th><th>結果</th><th>対象</th></tr></thead>
+          <tbody id="audit-body"></tbody>
+        </table>
       </div>
     </section>
   </main>
@@ -174,22 +205,54 @@
       startersEl.appendChild(button);
     });
 
+    function token() {
+      return document.getElementById("token").value.trim() || localStorage.getItem("agentToken") || "";
+    }
+    function headers(extra) {
+      const h = Object.assign({ "Content-Type": "application/json" }, extra || {});
+      const value = token();
+      if (value) h.Authorization = "Bearer " + value;
+      return h;
+    }
+    async function api(path, options) {
+      const response = await fetch(path, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = payload.detail || response.statusText;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+      return payload;
+    }
+
     document.querySelectorAll("nav button").forEach((button) => {
       button.onclick = () => {
         document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
         button.classList.add("active");
-        ["chat", "knowledge", "mail"].forEach((id) => {
+        ["chat", "knowledge", "mail", "approvals", "audit"].forEach((id) => {
           document.getElementById(id).classList.toggle("hidden", id !== button.dataset.tab);
         });
         if (button.dataset.tab === "knowledge") loadKnowledge();
         if (button.dataset.tab === "mail") loadMail();
+        if (button.dataset.tab === "approvals") loadApprovals();
+        if (button.dataset.tab === "audit") loadAudit();
       };
     });
 
     async function health() {
       const payload = await (await fetch("/health")).json();
       document.getElementById("status").textContent =
-        `${payload.llm} / ${payload.store} / ナレッジ ${payload.knowledge} 件`;
+        `${payload.llm} / ${payload.store} / 認証 ${payload.auth} / ナレッジ ${payload.knowledge} 件`;
+    }
+
+    async function whoami() {
+      try {
+        const me = await api("/v1/me", { headers: headers() });
+        document.getElementById("me").textContent =
+          `${me.name} / ${me.department} / ${me.clearance}` + (me.can_approve ? " / 承認可" : "");
+        document.getElementById("mail-sender").value = me.email;
+      } catch (error) {
+        document.getElementById("me").textContent = error.message;
+      }
     }
 
     function addMsg(role, text, meta) {
@@ -203,14 +266,18 @@
 
     async function ask(text) {
       addMsg("あなた", text);
-      const response = await fetch("/v1/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: 1, question: text }),
-      });
-      const payload = await response.json();
-      const cites = (payload.citations || []).map((c) => `${c.source}:${c.name}`).join(" · ");
-      addMsg("社内AI", payload.answer, [payload.status, payload.intent, cites].filter(Boolean).join(" | "));
+      try {
+        const payload = await api("/v1/chat", {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({ question: text }),
+        });
+        const cites = (payload.citations || []).map((c) => `${c.source}:${c.name}`).join(" · ");
+        addMsg("社内AI", payload.answer, [payload.status, payload.intent, payload.approval_id, cites].filter(Boolean).join(" | "));
+        if (payload.status === "needs_approval") loadApprovals();
+      } catch (error) {
+        addMsg("社内AI", error.message, "error");
+      }
     }
 
     document.getElementById("chat-form").onsubmit = (event) => {
@@ -222,69 +289,137 @@
       ask(text);
     };
 
+    document.getElementById("save-token").onclick = () => {
+      localStorage.setItem("agentToken", token());
+      whoami();
+    };
+    document.getElementById("token").value = localStorage.getItem("agentToken") || "local-admin";
+
     async function loadKnowledge() {
-      const items = await (await fetch("/v1/knowledge")).json();
-      document.getElementById("knowledge-body").innerHTML = items.map((item) =>
-        `<tr><td class="chip">${item.source_system}</td><td>${item.name}</td><td>${item.kind}</td><td>${item.excerpt}</td></tr>`
-      ).join("");
+      try {
+        const items = await api("/v1/knowledge", { headers: headers() });
+        document.getElementById("knowledge-body").innerHTML = items.map((item) =>
+          `<tr><td class="chip">${item.source_system}</td><td>${item.department || ""}</td><td>${item.classification || ""}</td><td>${item.name}</td><td>${item.excerpt}</td></tr>`
+        ).join("");
+      } catch (error) {
+        document.getElementById("knowledge-body").innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+      }
     }
 
     document.getElementById("ingest-form").onsubmit = async (event) => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(event.target));
-      await fetch("/v1/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: data.title + ".md",
-          title: data.title,
-          body: data.body,
-          kind: data.kind,
-          source_system: data.source_system,
-        }),
-      });
-      event.target.reset();
-      loadKnowledge();
-      health();
+      try {
+        await api("/v1/ingest", {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({
+            path: data.title + ".md",
+            title: data.title,
+            body: data.body,
+            kind: data.kind,
+            source_system: data.source_system,
+          }),
+        });
+        event.target.reset();
+        loadKnowledge();
+        health();
+      } catch (error) {
+        addMsg("取り込み", error.message, "error");
+      }
     };
 
     document.getElementById("reload-ms").onclick = async () => {
-      const payload = await (await fetch("/v1/ingest/microsoft", { method: "POST" })).json();
-      document.getElementById("ms-result").textContent =
-        `${payload.mode} / ${payload.count} 件`;
-      loadKnowledge();
-      health();
+      try {
+        const payload = await api("/v1/ingest/microsoft", { method: "POST", headers: headers() });
+        document.getElementById("ms-result").textContent = `${payload.mode} / ${payload.count} 件`;
+        loadKnowledge();
+        health();
+      } catch (error) {
+        document.getElementById("ms-result").textContent = error.message;
+      }
     };
 
     document.getElementById("mail-form").onsubmit = async (event) => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(event.target));
-      const payload = await (await fetch("/v1/mail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })).json();
-      addMail("outbox", `${payload.would_send}\n${payload.text}`);
-      loadMail();
+      try {
+        const payload = await api("/v1/mail/send", {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify(data),
+        });
+        addMail("outbox", `${payload.would_send}\n${payload.text}`);
+        loadMail();
+      } catch (error) {
+        addMail("outbox", error.message);
+      }
     };
 
     function addMail(id, text) {
-      const el = document.getElementById(id);
-      el.textContent = text;
+      document.getElementById(id).textContent = text;
     }
 
     async function loadMail() {
-      const out = await (await fetch("/v1/mail/outbox")).json();
-      document.getElementById("outbox").innerHTML = out.map((m) =>
-        `<p><small>${m.via} ${m.to}</small><br>${m.subject}</p>`
-      ).join("") || "<p>まだ無い</p>";
-      const inbox = await (await fetch("/v1/mail/inbox")).json();
-      document.getElementById("inbox").innerHTML = inbox.map((m) =>
-        `<p><small>${m.from}</small><br>${m.subject}</p>`
-      ).join("") || "<p>Mailpit にまだ無い</p>";
+      try {
+        const out = await api("/v1/mail/outbox", { headers: headers() });
+        document.getElementById("outbox").innerHTML = out.map((m) =>
+          `<p><small>${m.via} ${m.to}</small><br>${m.subject}</p>`
+        ).join("") || "<p>まだ無い</p>";
+        const inbox = await api("/v1/mail/inbox", { headers: headers() });
+        document.getElementById("inbox").innerHTML = inbox.map((m) =>
+          `<p><small>${m.from}</small><br>${m.subject}</p>`
+        ).join("") || "<p>Mailpit にまだ無い</p>";
+      } catch (error) {
+        document.getElementById("outbox").textContent = error.message;
+      }
+    }
+
+    async function loadApprovals() {
+      try {
+        const items = await api("/v1/approvals", { headers: headers() });
+        document.getElementById("approval-body").innerHTML = items.map((item) =>
+          `<tr><td>${item.status}</td><td>${item.department}</td><td>${item.question}</td><td>${
+            item.status === "pending"
+              ? `<button class="go" data-approve="${item.id}">通す</button>`
+              : ""
+          }</td></tr>`
+        ).join("") || "<tr><td colspan='4'>待ちは無い</td></tr>";
+        document.querySelectorAll("[data-approve]").forEach((button) => {
+          button.onclick = async () => {
+            try {
+              await api("/v1/approvals/" + button.dataset.approve, {
+                method: "POST",
+                headers: headers(),
+                body: JSON.stringify({ approved: true }),
+              });
+              loadApprovals();
+            } catch (error) {
+              addMsg("承認", error.message, "error");
+            }
+          };
+        });
+      } catch (error) {
+        document.getElementById("approval-body").innerHTML = `<tr><td colspan="4">${error.message}</td></tr>`;
+      }
+    }
+
+    async function loadAudit() {
+      try {
+        const payload = await api("/v1/audit", { headers: headers() });
+        const intact = document.getElementById("audit-intact");
+        intact.textContent = payload.intact ? "ハッシュ連鎖は壊れていない" : "監査ログが改ざんされている";
+        intact.classList.toggle("bad", !payload.intact);
+        document.getElementById("audit-body").innerHTML = (payload.events || []).slice().reverse().map((item) =>
+          `<tr><td>${item.ts}</td><td>${item.action}</td><td>${item.actor}</td><td>${item.outcome}</td><td>${item.resource}</td></tr>`
+        ).join("");
+      } catch (error) {
+        document.getElementById("audit-body").innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+      }
     }
 
     health();
+    whoami();
   </script>
 </body>
 </html>

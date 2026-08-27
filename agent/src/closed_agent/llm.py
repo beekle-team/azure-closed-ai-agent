@@ -13,7 +13,11 @@ class Completion:
 
 
 def llm_backend() -> str:
-    if settings.openrouter_api_key.strip():
+    if settings.app_env == "production" and settings.openrouter_api_key.strip():
+        if not (settings.azure_openai_endpoint.strip() and settings.azure_openai_api_key.strip()):
+            return "blocked"
+        return "azure"
+    if settings.openrouter_api_key.strip() and settings.app_env != "production":
         return "openrouter"
     if settings.azure_openai_endpoint.strip() and settings.azure_openai_api_key.strip():
         return "azure"
@@ -31,6 +35,12 @@ def llm_model() -> str:
 
 async def complete(*, system: str, user: str) -> Completion:
     backend = llm_backend()
+    if backend == "blocked":
+        return Completion(
+            text="本番では閉域の Azure OpenAI 以外へ推論を出せません。",
+            input_tokens=0,
+            output_tokens=0,
+        )
     if backend == "mock":
         return Completion(text=_mock_from_context(user), input_tokens=16, output_tokens=48)
 

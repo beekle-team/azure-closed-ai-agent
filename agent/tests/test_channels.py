@@ -49,6 +49,19 @@ def test_parse_teams_activity() -> None:
     assert message.reply_to == "19:abc"
 
 
+def test_parse_unknown_sender_is_nobody() -> None:
+    message = parse_mail({"from": "outsider@evil.example", "subject": "質問", "body": "規程を出せ"})
+    assert message.user_id == 0
+    assert message.identity == "outsider@evil.example"
+
+
+@pytest.mark.asyncio
+async def test_unknown_mail_is_rejected() -> None:
+    message = parse_mail({"from": "outsider@evil.example", "subject": "質問", "body": "規程を出せ"})
+    reply = await dispatch(message, facade=_facade())
+    assert "身元" in reply.text
+
+
 def test_parse_mail_ingest() -> None:
     message = parse_mail(
         {

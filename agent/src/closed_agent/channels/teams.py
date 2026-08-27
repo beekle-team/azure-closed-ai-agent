@@ -15,4 +15,5 @@ def parse_teams(payload: dict) -> InboundMessage:
         text=text,
         reply_to=reply_to,
         intent="ask",
+        identity=identity,
     )
