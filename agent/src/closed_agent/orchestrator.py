@@ -19,6 +19,13 @@ SYSTEM_PROMPT = """あなたは社内AIチャットです。
 APPROVAL_WORDS = ("送信", "発注", "削除", "公開")
 
 
+def _evidence_line(hit: RetrievalHit) -> str:
+    excerpt = (hit.text or hit.reason or hit.path).replace("\n", " ").strip()
+    if len(excerpt) > 240:
+        excerpt = excerpt[:240] + "…"
+    return f"- [{hit.source}] {hit.name} ({hit.kind}) {excerpt}"
+
+
 def _citations(hits: list[RetrievalHit]) -> list[Citation]:
     citations: list[Citation] = []
     seen: set[str] = set()
@@ -76,9 +83,7 @@ async def run_chat(
     search_plan, retrieved = _gather(facade, question)
     hits = retrieved.hits
     citations = _citations(hits)
-    context = "\n".join(f"- [{hit.source}] {hit.name} ({hit.kind}) {hit.reason}" for hit in hits) or (
-        "- 関係は見つかりませんでした"
-    )
+    context = "\n".join(_evidence_line(hit) for hit in hits) or "- 関係は見つかりませんでした"
 
     matched = catalog.match(question)
     if matched and _wants_skill_run(question):
