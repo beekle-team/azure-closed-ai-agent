@@ -5,6 +5,7 @@ WORKDIR /app
 COPY pyproject.toml /app/pyproject.toml
 COPY src /app/src
 COPY tests /app/tests
+COPY samples /app/samples
 
 RUN pip install --no-cache-dir -e ".[dev]"
 

@@ -1,8 +1,46 @@
 # Azure閉域AIエージェント
 
-Microsoft 365 と Entra と Azure OpenAI はそのまま使う。
-エージェントのループ、業務の関係、承認とログは FastAPI とグラフDBで持つ。
-ユーザー、組織、課金、管理画面は Laravel と PostgreSQL に置く。
+Microsoft 店向けのテンプレート。
+Entra、Azure OpenAI、Teams、VNet は既にある前提で、口伝をスキルにして回す実行基盤だけを箱に入れた。
 
-Beekle が業務システムで繰り返している分け方と同じである。
-入口は Traefik、管理画面は [laravel-react-docker-template](https://github.com/beekle-team/laravel-react-docker-template)、推論は FastAPI、関係は Neo4j。
+スキルは Markdown、ハーネスは FastAPI、画面は Laravel の Inertia。
+モデルは Azure OpenAI。ループは Container Apps。
+Hosted Agent はイメージ置き場をプライベートにできないので、既定にしない。
+
+```bash
+cp .env.example .env
+make bootstrap
+make up
+```
+
+| URL | 中身 |
+| --- | --- |
+| http://admin.localhost/chat | 社内AIチャット |
+| http://admin.localhost/skills | スキル |
+| http://admin.localhost/usage | 利用枠 |
+| http://agent.localhost/docs | API |
+
+初期ユーザーは `admin@example.com` / `password`。本番では変える。
+まずはチャット。口伝を引けるだけでも使える。
+ナレッジは部署が rules と口伝を持つ。全社規程は組織側。部署をまたいで混ぜない。
+スキルを回すと、ブラウザから書類チェックが動く。
+出張、稟議、契約、投資、与信、貿易、コンプラ。大手の現場でもそのまま差し替えられる工程を入れた。
+
+```
+Teams / メール / ブラウザ
+        │
+     Traefik
+        ├── Laravel + Inertia     画面、ユーザー、課金
+        └── FastAPI
+              ├── スキル
+              ├── Search Service
+              └── Azure OpenAI
+```
+
+手元の Azure は公式エミュレータ。`make up` で Azurite（Blob / Queue）。Service Bus は `make up-emulators`。
+閉域（VNet / Private Endpoint）はエミュレータでは見ない。Jumpbox から見る。
+
+`make bootstrap` が [laravel-react-docker-template](https://github.com/beekle-team/laravel-react-docker-template) を clone し、`admin-overlay/` を載せる。
+Azure は `infra/terraform`。構成は `docs/architecture.md`。
+
+MIT
