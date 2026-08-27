@@ -1,0 +1,6 @@
+http:
+  middlewares:
+    internal-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: http
