@@ -13,6 +13,12 @@ def run_skill(skill: Skill, inputs: dict[str, str] | None = None) -> str:
         return _contract_review(payload)
     if skill.id == "investment-check":
         return _investment_check(payload)
+    if skill.id == "credit-check":
+        return _credit_check(payload)
+    if skill.id == "trade-docs":
+        return _trade_docs(payload)
+    if skill.id == "compliance-check":
+        return _compliance_check(payload)
     return skill.body
 
 
@@ -70,3 +76,60 @@ def _investment_check(inputs: dict[str, str]) -> str:
         "与信: 初回かどうかは、金額より先に見る。口伝の与信ルートと同じ。\n"
         "要約と翻訳は汎用チャットで足りる。申請の漏れは、このスキルが見る。"
     )
+
+
+def _credit_check(inputs: dict[str, str]) -> str:
+    counterparty = inputs.get("counterparty") or "新規取引先"
+    first_time = inputs.get("first_time", "yes") != "no"
+    amount = int(inputs.get("amount") or "0")
+    store = StructuredStore(settings.sample_root / "structured.json")
+    limit = next(
+        (int(item["limit"]) for item in store.data.get("credit_limits", []) if item["name"] == counterparty),
+        0,
+    )
+    lines = [
+        f"{counterparty}の与信。金額より先に、初めてかどうかを見た。",
+    ]
+    if first_time or limit == 0:
+        lines.append("初回なので与信室を通す。既存の枠は使わない。")
+    elif amount > limit:
+        lines.append(f"既存先だが、枠{limit:,}円を超える。財務部を乗せる。")
+    else:
+        lines.append(f"既存先で、枠{limit:,}円の内。担当と部長で足りる。")
+    lines.append("画面は金額欄が先に来る。初回を見落とすな、が口伝である。")
+    return "\n".join(lines)
+
+
+def _trade_docs(inputs: dict[str, str]) -> str:
+    invoice_ccy = inputs.get("invoice_currency") or "USD"
+    bl_ccy = inputs.get("bl_currency") or invoice_ccy
+    incoterms = inputs.get("incoterms") or "FOB"
+    insured = inputs.get("insured", "no") == "yes"
+    lines = [
+        "数量を足す前に、通貨と建値を突合した。",
+        f"インボイスは{invoice_ccy}、船荷証券は{bl_ccy}、建値は{incoterms}。",
+    ]
+    if invoice_ccy != bl_ccy:
+        lines.append("通貨が食い違っている。船積みを止めて、契約管理部へ戻す。")
+    if incoterms == "FOB" and insured:
+        lines.append("FOBなのに保険料が乗っている。運賃保険料は買い手側である。")
+    if invoice_ccy == bl_ccy and not (incoterms == "FOB" and insured):
+        lines.append("通貨と建値は揃っている。次に信用状の船積期限と船荷証券の日付を見る。")
+    return "\n".join(lines)
+
+
+def _compliance_check(inputs: dict[str, str]) -> str:
+    destination = inputs.get("destination") or "出荷先"
+    reexport = inputs.get("reexport", "no") == "yes"
+    gift = inputs.get("gift", "no") == "yes"
+    lines = [
+        f"{destination}向けの事前確認。国名だけでなく、船積み地と銀行も見る。",
+    ]
+    if reexport:
+        lines.append("再輸出がある。該非判定書はそのまま渡さない。貿易管理部へ先に聞く。")
+    if gift:
+        lines.append("贈答がある。申請画面の閾値より前に、コンプライアンス室へ一声かける。")
+    if not reexport and not gift:
+        lines.append("再輸出も贈答も無い。制裁対象に該当しないことだけ、室へ確認する。")
+    lines.append("送信は承認後に実行します。")
+    return "\n".join(lines)
