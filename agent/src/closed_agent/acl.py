@@ -113,6 +113,24 @@ def classify(name: str, kind: str = "Document", source_system: str = "") -> Reso
     return ResourceACL(ORG_WIDE, "internal", org_wide=True)
 
 
+def acl_for_item(item: dict[str, object]) -> ResourceACL:
+    """文書に載っている部署・区分を正本にする。題名の単語当ては未記入のときだけ。"""
+    department = str(item.get("department") or "").strip()
+    classification = str(item.get("classification") or "").strip()
+    if department:
+        raw_wide = item.get("org_wide")
+        if raw_wide in {None, ""}:
+            org_wide = classification == "internal" and str(item.get("kind") or "") != "TacitKnowledge"
+        else:
+            org_wide = str(raw_wide).lower() in {"1", "true", "yes"}
+        return ResourceACL(department, classification or "internal", org_wide)
+    return classify(
+        str(item.get("name") or ""),
+        str(item.get("kind") or "Document"),
+        str(item.get("source_system") or ""),
+    )
+
+
 def classify_hit(hit: RetrievalHit) -> ResourceACL:
     if hit.department:
         return ResourceACL(
@@ -152,9 +170,26 @@ def can_use_skill(principal: Principal, skill: Skill) -> bool:
     return principal.department in allowed
 
 
-def acl_for_ingest(*, title: str, kind: str, source_system: str, principal: Principal) -> ResourceACL:
-    guessed = classify(title, "TacitKnowledge" if kind == "tacit" else "Document", source_system)
-    if principal.is_admin:
-        return guessed
-    classification = "confidential" if kind == "tacit" else "internal"
-    return ResourceACL(principal.department, classification, org_wide=False)
+def acl_for_ingest(
+    *,
+    title: str,
+    kind: str,
+    source_system: str,
+    principal: Principal,
+    department: str = "",
+    classification: str = "",
+    org_wide: bool | None = None,
+) -> ResourceACL:
+    if not principal.is_admin:
+        return ResourceACL(
+            principal.department,
+            "confidential" if kind == "tacit" else "internal",
+            org_wide=False,
+        )
+    if department.strip():
+        return ResourceACL(
+            department.strip(),
+            classification.strip() or ("confidential" if kind == "tacit" else "internal"),
+            bool(org_wide) if org_wide is not None else False,
+        )
+    return classify(title, "TacitKnowledge" if kind == "tacit" else "Document", source_system)

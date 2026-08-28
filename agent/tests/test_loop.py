@@ -5,6 +5,7 @@ from closed_agent.schemas import Citation
 
 def test_needs_approval_for_send() -> None:
     assert _needs_approval("この見積を顧客へ送信して")
+    assert _needs_approval("見積をメールを出して")
     assert not _needs_approval("見積作成手順は誰が使うか")
 
 

@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from closed_agent.acl import acl_for_ingest, can_read, can_use_skill, can_write, classify
+from closed_agent.acl import acl_for_ingest, acl_for_item, can_read, can_use_skill, can_write
 from closed_agent.approvals import approval_store
 from closed_agent.audit import audit_log
 from closed_agent.auth import require_auditor, require_principal, require_webhook
@@ -13,6 +13,7 @@ from closed_agent.channels.dispatch import dispatch
 from closed_agent.channels.mail import parse_mail
 from closed_agent.channels.outbound import OUTBOX, list_inbox
 from closed_agent.channels.teams import parse_teams
+from closed_agent.conversations import conversation_store
 from closed_agent.dlp import scan
 from closed_agent.entra import ready as entra_ready
 from closed_agent.identity import Principal
@@ -36,7 +37,7 @@ from closed_agent.skills.runner import run_skill
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-app = FastAPI(title="Closed AI Agent", version="0.5.0")
+app = FastAPI(title="Closed AI Agent", version="0.6.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
@@ -50,6 +51,14 @@ _write_root.mkdir(parents=True, exist_ok=True)
 _ingest = IngestPipeline(_write_root, _facade.keyword, _facade.graph)
 _ingest.hydrate()
 import_microsoft_knowledge(_ingest)
+
+
+def _visible_catalog(principal: Principal) -> list[dict[str, str]]:
+    visible = []
+    for item in _facade.keyword.catalog():
+        if can_read(principal, acl_for_item(item)):
+            visible.append(item)
+    return visible
 
 
 @app.get("/health")
@@ -66,6 +75,7 @@ def health() -> dict[str, object]:
         "entra": entra_ready(),
         "search": search_backend(_facade.keyword),
         "graph": "token" if settings.graph_access_token.strip() else "fixture",
+        "version": "0.6.0",
     }
 
 
@@ -93,6 +103,28 @@ def me(principal: Principal = Depends(require_principal)) -> dict[str, object]:
     }
 
 
+@app.get("/v1/overview")
+def overview(principal: Principal = Depends(require_principal)) -> dict[str, object]:
+    visible = _visible_catalog(principal)
+    sources: dict[str, int] = {}
+    departments: dict[str, int] = {}
+    for item in visible:
+        source = item.get("source_system") or "corpus"
+        sources[source] = sources.get(source, 0) + 1
+        dept = item.get("department") or "未分類"
+        departments[dept] = departments.get(dept, 0) + 1
+    pending = [item for item in approval_store.list(principal=principal) if item.status == "pending"]
+    return {
+        "department": principal.department,
+        "visible_knowledge": len(visible),
+        "total_knowledge": len(_facade.keyword.catalog()),
+        "pending_approvals": len(pending),
+        "sources": sources,
+        "departments": departments,
+        "search": search_backend(_facade.keyword),
+    }
+
+
 @app.post("/v1/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, principal: Principal = Depends(require_principal)) -> ChatResponse:
     try:
@@ -102,10 +134,19 @@ async def chat(payload: ChatRequest, principal: Principal = Depends(require_prin
             facade=_facade,
             principal=principal,
             approval_id=payload.approval_id,
+            conversation_id=payload.conversation_id,
             channel="web",
         )
     except QuotaExceededError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
+
+
+@app.get("/v1/conversations/{conversation_id}")
+def get_conversation(conversation_id: str, principal: Principal = Depends(require_principal)) -> dict[str, object]:
+    found = conversation_store.get(conversation_id, principal)
+    if found is None:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    return found
 
 
 @app.get("/v1/approvals")
@@ -189,12 +230,23 @@ def search_plan(q: str, principal: Principal = Depends(require_principal)) -> di
 
 
 @app.get("/v1/knowledge")
-def list_knowledge(principal: Principal = Depends(require_principal)) -> list[dict[str, str]]:
-    visible = []
-    for item in _facade.keyword.catalog():
-        acl = classify(item["name"], item.get("kind") or "Document", item.get("source_system") or "")
-        if can_read(principal, acl):
-            visible.append(item)
+def list_knowledge(
+    principal: Principal = Depends(require_principal),
+    q: str = Query(default=""),
+    department: str = Query(default=""),
+    classification: str = Query(default=""),
+    source_system: str = Query(default=""),
+) -> list[dict[str, str]]:
+    visible = _visible_catalog(principal)
+    needle = q.strip()
+    if needle:
+        visible = [item for item in visible if needle in item["name"] or needle in (item.get("excerpt") or "")]
+    if department:
+        visible = [item for item in visible if item.get("department") == department]
+    if classification:
+        visible = [item for item in visible if item.get("classification") == classification]
+    if source_system:
+        visible = [item for item in visible if item.get("source_system") == source_system]
     audit_log.record(action="knowledge.list", principal=principal, resource="catalog", outcome="ok", detail=str(len(visible)))
     return visible
 
@@ -204,8 +256,7 @@ def get_knowledge(name: str, principal: Principal = Depends(require_principal)) 
     item = _facade.keyword.get(name)
     if item is None:
         raise HTTPException(status_code=404, detail="knowledge not found")
-    acl = classify(item["name"], item.get("kind") or "Document", item.get("source_system") or "")
-    if not can_read(principal, acl):
+    if not can_read(principal, acl_for_item(item)):
         audit_log.record(action="knowledge.read", principal=principal, resource=name, outcome="forbidden")
         raise HTTPException(status_code=404, detail="knowledge not found")
     audit_log.record(action="knowledge.read", principal=principal, resource=name, outcome="ok")
@@ -218,7 +269,15 @@ def ingest(payload: IngestRequest, principal: Principal = Depends(require_princi
     if dlp.blocked:
         audit_log.record(action="ingest", principal=principal, resource=payload.title, outcome="blocked", detail=dlp.reason)
         raise HTTPException(status_code=422, detail=dlp.reason)
-    acl = acl_for_ingest(title=payload.title, kind=payload.kind, source_system=payload.source_system, principal=principal)
+    acl = acl_for_ingest(
+        title=payload.title,
+        kind=payload.kind,
+        source_system=payload.source_system,
+        principal=principal,
+        department=payload.department,
+        classification=payload.classification,
+        org_wide=payload.org_wide,
+    )
     if not can_write(principal, acl):
         raise HTTPException(status_code=403, detail="この部署の文書庫へ書く権限がありません")
     saved = _ingest.ingest(
@@ -254,10 +313,8 @@ def drain_ingest(principal: Principal = Depends(require_principal)) -> dict[str,
 @app.post("/v1/channels/teams", response_model=ChannelReplyResponse)
 async def teams_channel(
     payload: dict,
-    principal: Principal = Depends(require_principal),
     _: None = Depends(require_webhook),
 ) -> ChannelReplyResponse:
-    del principal
     reply = await dispatch(parse_teams(payload), facade=_facade, ingest=_ingest)
     return ChannelReplyResponse(channel=reply.channel, to=reply.to, text=reply.text, would_send=reply.would_send)
 
@@ -265,10 +322,8 @@ async def teams_channel(
 @app.post("/v1/channels/mail", response_model=ChannelReplyResponse)
 async def mail_channel(
     payload: dict,
-    principal: Principal = Depends(require_principal),
     _: None = Depends(require_webhook),
 ) -> ChannelReplyResponse:
-    del principal
     reply = await dispatch(parse_mail(payload), facade=_facade, ingest=_ingest)
     return ChannelReplyResponse(channel=reply.channel, to=reply.to, text=reply.text, would_send=reply.would_send)
 

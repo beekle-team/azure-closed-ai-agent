@@ -7,6 +7,7 @@ class ChatRequest(BaseModel):
     user_id: int | None = None
     question: str = Field(min_length=1, max_length=4000)
     approval_id: str | None = None
+    conversation_id: str | None = None
 
 
 class Citation(BaseModel):
@@ -27,6 +28,8 @@ class ChatResponse(BaseModel):
     intent: str | None = None
     missing_evidence: list[str] = []
     recommended_next_action: str | None = None
+    conversation_id: str | None = None
+    action: str | None = None
 
 
 class ApprovalRequest(BaseModel):
@@ -54,6 +57,9 @@ class IngestRequest(BaseModel):
     kind: Literal["manual", "tacit"] = "tacit"
     source_system: str = "corpus"
     source_url: str = ""
+    department: str = ""
+    classification: str = ""
+    org_wide: bool = False
 
 
 class KnowledgeItem(BaseModel):

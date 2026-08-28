@@ -7,7 +7,7 @@ from pathlib import Path
 from threading import Lock
 
 from closed_agent.identity import Principal
-from closed_agent.settings import settings
+from closed_agent.persist import connect
 
 
 def _now() -> str:
@@ -15,26 +15,19 @@ def _now() -> str:
 
 
 class AuditLog:
-    """改ざん検知用に前件ハッシュを繋いだ追記ログ。"""
+    """改ざん検知用に前件ハッシュを繋いだ追記ログ。正本は SQLite。"""
 
     def __init__(self, path: Path | None = None) -> None:
-        self.path = path or (settings.data_dir / "audit.jsonl")
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path = path
         self._lock = Lock()
-        self._last_hash = self._tail_hash()
+        connect(path)
+
+    def _db(self):
+        return connect(self.path)
 
     def _tail_hash(self) -> str:
-        if not self.path.exists():
-            return "genesis"
-        last = "genesis"
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            try:
-                last = json.loads(line).get("hash") or last
-            except json.JSONDecodeError:
-                continue
-        return last
+        row = self._db().execute("SELECT hash FROM audit ORDER BY id DESC LIMIT 1").fetchone()
+        return row["hash"] if row else "genesis"
 
     def record(
         self,
@@ -57,58 +50,87 @@ class AuditLog:
                 "outcome": outcome,
                 "detail": (detail or "")[:500],
                 "channel": channel,
-                "prev_hash": self._last_hash,
+                "prev_hash": self._tail_hash(),
             }
             payload = json.dumps(event, ensure_ascii=False, sort_keys=True)
             event["hash"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
-            self._last_hash = event["hash"]
+            self._db().execute(
+                """INSERT INTO audit
+                   (ts, action, actor, user_id, department, resource, outcome, detail, channel, prev_hash, hash)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    event["ts"],
+                    event["action"],
+                    event["actor"],
+                    event["user_id"],
+                    event["department"],
+                    event["resource"],
+                    event["outcome"],
+                    event["detail"],
+                    event["channel"],
+                    event["prev_hash"],
+                    event["hash"],
+                ),
+            )
+            self._db().commit()
         return event
 
     def list(self, limit: int = 100, department: str | None = None) -> list[dict[str, str]]:
-        if not self.path.exists():
-            return []
-        rows: list[dict[str, str]] = []
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            try:
-                item = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if department and item.get("department") != department:
-                continue
-            rows.append(item)
-        return rows[-limit:]
+        if department:
+            rows = self._db().execute(
+                "SELECT * FROM audit WHERE department = ? ORDER BY id DESC LIMIT ?",
+                (department, limit),
+            ).fetchall()
+        else:
+            rows = self._db().execute("SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        items = []
+        for row in reversed(rows):
+            items.append(
+                {
+                    "ts": row["ts"],
+                    "action": row["action"],
+                    "actor": row["actor"],
+                    "user_id": row["user_id"],
+                    "department": row["department"],
+                    "resource": row["resource"],
+                    "outcome": row["outcome"],
+                    "detail": row["detail"],
+                    "channel": row["channel"],
+                    "prev_hash": row["prev_hash"],
+                    "hash": row["hash"],
+                }
+            )
+        return items
 
     def reset(self) -> None:
         with self._lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text("", encoding="utf-8")
-            self._last_hash = "genesis"
+            self._db().execute("DELETE FROM audit")
+            self._db().commit()
 
     def intact(self) -> bool:
         prev = "genesis"
-        if not self.path.exists():
-            return True
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            try:
-                item = json.loads(line)
-            except json.JSONDecodeError:
+        rows = self._db().execute(
+            "SELECT ts, action, actor, user_id, department, resource, outcome, detail, channel, prev_hash, hash FROM audit ORDER BY id"
+        ).fetchall()
+        for row in rows:
+            event = {
+                "ts": row["ts"],
+                "action": row["action"],
+                "actor": row["actor"],
+                "user_id": row["user_id"],
+                "department": row["department"],
+                "resource": row["resource"],
+                "outcome": row["outcome"],
+                "detail": row["detail"],
+                "channel": row["channel"],
+                "prev_hash": row["prev_hash"],
+            }
+            if event["prev_hash"] != prev:
                 return False
-            expected_prev = item.get("prev_hash")
-            if expected_prev != prev:
+            digest = hashlib.sha256(json.dumps(event, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+            if digest != row["hash"]:
                 return False
-            copy = {key: value for key, value in item.items() if key != "hash"}
-            digest = hashlib.sha256(
-                json.dumps(copy, ensure_ascii=False, sort_keys=True).encode("utf-8")
-            ).hexdigest()
-            if digest != item.get("hash"):
-                return False
-            prev = item["hash"]
+            prev = row["hash"]
         return True
 
 

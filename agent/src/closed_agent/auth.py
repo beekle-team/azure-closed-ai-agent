@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+
 from fastapi import Header, HTTPException, Request
 
 from closed_agent.entra import resolve_bearer
@@ -61,5 +63,6 @@ def require_webhook(
     x_webhook_secret: str | None = Header(default=None, alias="X-Webhook-Secret"),
 ) -> None:
     expected = settings.channel_webhook_secret.strip()
-    if not expected or x_webhook_secret != expected:
+    provided = (x_webhook_secret or "").strip()
+    if not expected or not provided or not hmac.compare_digest(expected, provided):
         raise HTTPException(status_code=401, detail="チャネルの共有秘密が違います")

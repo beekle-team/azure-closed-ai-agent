@@ -6,196 +6,266 @@
   <title>閉域AIエージェント</title>
   <style>
     :root {
-      --bg: #12141a;
-      --panel: #1b1f29;
-      --ink: #eef1f6;
-      --muted: #9aa3b5;
-      --line: #2a3140;
+      --bg: #0e1016;
+      --panel: #171b24;
+      --panel-2: #1e2430;
+      --ink: #eef2f8;
+      --muted: #93a0b5;
+      --line: #2b3342;
       --accent: #d7a14d;
+      --accent-ink: #1b1408;
       --ok: #7dcea0;
       --bad: #e07a7a;
+      --info: #8ab4f8;
+      --shadow: 0 18px 40px rgba(0,0,0,.28);
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
-      font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
-      background: var(--bg);
+      font-family: "Hiragino Sans", "Noto Sans JP", ui-sans-serif, sans-serif;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, rgba(215,161,77,.12), transparent 50%),
+        var(--bg);
       color: var(--ink);
     }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--line);
+    .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100%; }
+    aside.nav {
+      border-right: 1px solid var(--line);
+      padding: 22px 16px;
+      background: rgba(23,27,36,.86);
     }
-    header strong { color: var(--accent); font-weight: 600; }
-    header span { color: var(--muted); font-size: 13px; }
-    .who { display: flex; gap: 8px; align-items: center; }
+    .brand { font-weight: 700; letter-spacing: .02em; }
+    .brand small { display: block; color: var(--muted); font-weight: 400; margin-top: 6px; line-height: 1.5; }
+    .nav-btn {
+      width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px;
+      border: 1px solid transparent; background: transparent; color: var(--muted);
+      border-radius: 10px; cursor: pointer; font-size: 14px;
+    }
+    .nav-btn.active { color: var(--ink); border-color: var(--accent); background: #211c14; }
+    header.top {
+      display: flex; justify-content: space-between; gap: 16px; align-items: center;
+      padding: 16px 24px; border-bottom: 1px solid var(--line);
+    }
+    #status, #me { color: var(--muted); font-size: 13px; }
+    #me { margin-top: 4px; }
+    .who { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .who input, input, textarea, select {
+      background: #12141a; color: var(--ink); border: 1px solid var(--line);
+      border-radius: 10px; padding: 10px 12px; font: inherit;
+    }
     .who input { width: 220px; }
-    nav { display: flex; gap: 8px; padding: 12px 24px; }
-    nav button {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--line);
-      padding: 8px 14px;
-      border-radius: 999px;
-      cursor: pointer;
-    }
-    nav button.active { color: var(--ink); border-color: var(--accent); }
-    main { padding: 0 24px 32px; }
-    .grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
-    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-    .log { min-height: 420px; max-height: 560px; overflow: auto; }
-    .msg { margin: 0 0 14px; }
-    .msg small { color: var(--muted); }
-    .msg p { margin: 4px 0 0; white-space: pre-wrap; line-height: 1.6; }
-    form.row { display: flex; gap: 8px; margin-top: 12px; }
-    input, textarea, select {
-      width: 100%;
-      background: #12141a;
-      color: var(--ink);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px;
-    }
     button.go {
-      background: var(--accent);
-      color: #1b1408;
-      border: 0;
-      border-radius: 8px;
-      padding: 10px 16px;
-      cursor: pointer;
-      font-weight: 600;
+      background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px;
+      padding: 10px 14px; font-weight: 700; cursor: pointer;
     }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    th { color: var(--muted); font-weight: 500; }
-    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #2a3140; color: var(--ok); font-size: 12px; }
+    button.ghost {
+      background: transparent; color: var(--ink); border: 1px solid var(--line);
+      border-radius: 999px; padding: 6px 10px; cursor: pointer; font-size: 12px;
+    }
+    main { padding: 20px 24px 32px; }
+    .hidden { display: none !important; }
+    .grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+    .grid.three { grid-template-columns: 280px 1fr 340px; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+      padding: 16px; box-shadow: var(--shadow);
+    }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+    .stat b { display: block; font-size: 22px; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .log { min-height: 420px; max-height: 58vh; overflow: auto; }
+    .msg { margin: 0 0 16px; }
+    .msg small { color: var(--muted); }
+    .msg p { margin: 6px 0 0; white-space: pre-wrap; line-height: 1.7; }
+    .cites { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px;
+      background: #2a3140; color: var(--ok); font-size: 12px; border: 0; cursor: pointer;
+    }
     .chip.bad { color: var(--bad); }
-    .starter { display: block; width: 100%; text-align: left; margin: 0 0 8px; background: #12141a; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; }
-    .hidden { display: none; }
+    .chip.mute { color: var(--muted); cursor: default; }
+    form.row { display: flex; gap: 8px; margin-top: 12px; }
+    form.row input { flex: 1; }
     label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; }
+    .starter {
+      display: block; width: 100%; text-align: left; margin: 0 0 8px; background: #12141a;
+      color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer;
+    }
+    .reader h2 { margin: 0 0 8px; font-size: 18px; }
+    .reader pre {
+      white-space: pre-wrap; line-height: 1.7; color: #d5dbe6; font-family: inherit; margin: 0;
+    }
+    .empty { color: var(--muted); padding: 28px 8px; line-height: 1.7; }
+    .skill {
+      border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: var(--panel-2);
+    }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+    @media (max-width: 960px) {
+      .app { grid-template-columns: 1fr; }
+      aside.nav { border-right: 0; border-bottom: 1px solid var(--line); }
+      .grid, .grid.three { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <header>
+  <div class="app">
+    <aside class="nav">
+      <div class="brand">閉域AIエージェント<small>部署の口伝と規程を、開いた身元のまま使う</small></div>
+      <div style="margin-top:22px">
+        <button class="nav-btn active" data-tab="chat">会話</button>
+        <button class="nav-btn" data-tab="knowledge">ナレッジ</button>
+        <button class="nav-btn" data-tab="skills">スキル</button>
+        <button class="nav-btn" data-tab="approvals">承認</button>
+        <button class="nav-btn" data-tab="audit">監査</button>
+        <button class="nav-btn" data-tab="mail">メール</button>
+      </div>
+    </aside>
     <div>
-      <strong>閉域AIエージェント</strong>
-      <span id="status">接続確認中</span>
-      <div id="me" style="color:var(--muted);font-size:13px;margin-top:4px">トークンを入れて身元を開く</div>
+      <header class="top">
+        <div>
+          <div id="status">接続確認中</div>
+          <div id="me">トークンを入れて身元を開く</div>
+        </div>
+        <div class="who">
+          <input id="token" placeholder="local-admin / local-sales / local-hr" />
+          <button class="go" type="button" id="save-token">身元を開く</button>
+        </div>
+      </header>
+      <main>
+        <section id="chat">
+          <div class="stats" id="overview"></div>
+          <div class="grid">
+            <aside class="panel">
+              <p class="chip mute">入口: ブラウザ</p>
+              <p style="color:var(--muted);font-size:13px">見える根拠は、開いた身元の部署と機密区分だけ。</p>
+              <div id="starters"></div>
+            </aside>
+            <div class="panel">
+              <div class="log" id="log"></div>
+              <form class="row" id="chat-form">
+                <input id="question" placeholder="業務の聞き方で投げる。送信や公開は承認待ちになる。" />
+                <button class="go" type="submit">送る</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section id="knowledge" class="hidden">
+          <div class="panel" style="margin-bottom:16px">
+            <div class="filters">
+              <input id="knowledge-q" placeholder="文書庫を探す" />
+              <select id="knowledge-dept"><option value="">全部署</option></select>
+              <select id="knowledge-class">
+                <option value="">区分すべて</option>
+                <option value="internal">internal</option>
+                <option value="confidential">confidential</option>
+                <option value="restricted">restricted</option>
+              </select>
+              <select id="knowledge-source"><option value="">出所すべて</option></select>
+              <button class="go" type="button" id="knowledge-search">探す</button>
+              <button class="ghost" type="button" id="reload-ms">Microsoft 文書を取り込む</button>
+              <span id="ms-result" style="color:var(--muted)"></span>
+            </div>
+          </div>
+          <div class="grid">
+            <form class="panel" id="ingest-form">
+              <label>題</label>
+              <input name="title" required placeholder="口伝の題" />
+              <label>本文</label>
+              <textarea name="body" rows="8" required placeholder="現場の正本。契約書本文や与信点は置かない。"></textarea>
+              <label>系統</label>
+              <select name="kind">
+                <option value="tacit">口伝</option>
+                <option value="manual">規程 / マニュアル</option>
+              </select>
+              <label>出所</label>
+              <select name="source_system">
+                <option value="corpus">手元</option>
+                <option value="sharepoint">SharePoint</option>
+                <option value="teams">Teams</option>
+                <option value="outlook">Outlook</option>
+                <option value="onedrive">OneDrive</option>
+              </select>
+              <label>部署（管理者だけ指定可。他は自分の部署）</label>
+              <input name="department" placeholder="空なら開いた身元の部署" />
+              <div style="margin-top:12px"><button class="go" type="submit">文書庫へ置く</button></div>
+            </form>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="panel" style="overflow:auto;max-height:70vh">
+                <table>
+                  <thead><tr><th>出所</th><th>部署</th><th>区分</th><th>名前</th></tr></thead>
+                  <tbody id="knowledge-body"></tbody>
+                </table>
+              </div>
+              <div class="panel reader" id="reader">
+                <div class="empty">左の行を開くと、本文がここに出る。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="skills" class="hidden">
+          <div class="panel" id="skills-list"></div>
+        </section>
+
+        <section id="approvals" class="hidden">
+          <div class="panel">
+            <table>
+              <thead><tr><th>状態</th><th>部署</th><th>操作</th><th>質問</th><th></th></tr></thead>
+              <tbody id="approval-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="audit" class="hidden">
+          <div class="panel">
+            <p id="audit-intact" class="chip">監査チェーン</p>
+            <table>
+              <thead><tr><th>時刻</th><th>行為</th><th>人</th><th>結果</th><th>対象</th></tr></thead>
+              <tbody id="audit-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="mail" class="hidden">
+          <div class="grid">
+            <form class="panel" id="mail-form">
+              <label>差出人</label>
+              <input name="sender" id="mail-sender" value="" readonly />
+              <label>件名</label>
+              <input name="subject" required placeholder="口伝: 経理の締日 / 質問" />
+              <label>本文</label>
+              <textarea name="body" rows="8" required></textarea>
+              <p style="color:var(--muted);font-size:13px">差出人は開いた身元。未知のメールは受けない。件名が「口伝」で始まると取り込み。</p>
+              <button class="go" type="submit">メールとして流す</button>
+            </form>
+            <div class="panel">
+              <h3 style="margin-top:0">出したメール</h3>
+              <div id="outbox"></div>
+              <h3>Mailpit 受信</h3>
+              <div id="inbox"></div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
-    <div class="who">
-      <input id="token" placeholder="local-admin / local-sales / local-hr" />
-      <button class="go" type="button" id="save-token">身元を開く</button>
-    </div>
-  </header>
-  <nav>
-    <button class="active" data-tab="chat">チャット</button>
-    <button data-tab="knowledge">ナレッジ</button>
-    <button data-tab="mail">メール</button>
-    <button data-tab="approvals">承認</button>
-    <button data-tab="audit">監査</button>
-  </nav>
-  <main>
-    <section id="chat">
-      <div class="grid">
-        <aside class="panel">
-          <p class="chip">入口: ブラウザ</p>
-          <p style="color:var(--muted);font-size:13px">見える根拠は、開いた身元の部署と機密区分だけ。</p>
-          <div id="starters"></div>
-        </aside>
-        <div class="panel">
-          <div class="log" id="log"></div>
-          <form class="row" id="chat-form">
-            <input id="question" placeholder="業務の聞き方で投げる" />
-            <button class="go" type="submit">送る</button>
-          </form>
-        </div>
-      </div>
-    </section>
-    <section id="knowledge" class="hidden">
-      <div class="panel" style="margin-bottom:16px">
-        <button class="go" id="reload-ms" type="button">Microsoft 文書を取り込む</button>
-        <span id="ms-result" style="margin-left:12px;color:var(--muted)"></span>
-      </div>
-      <div class="grid">
-        <form class="panel" id="ingest-form">
-          <label>題</label>
-          <input name="title" required placeholder="口伝の題" />
-          <label>本文</label>
-          <textarea name="body" rows="8" required placeholder="現場の正本。契約書本文や与信点は置かない。"></textarea>
-          <label>系統</label>
-          <select name="kind">
-            <option value="tacit">口伝</option>
-            <option value="manual">規程 / マニュアル</option>
-          </select>
-          <label>出所</label>
-          <select name="source_system">
-            <option value="corpus">手元</option>
-            <option value="sharepoint">SharePoint</option>
-            <option value="teams">Teams</option>
-            <option value="outlook">Outlook</option>
-            <option value="onedrive">OneDrive</option>
-          </select>
-          <div style="margin-top:12px"><button class="go" type="submit">文書庫へ置く</button></div>
-        </form>
-        <div class="panel">
-          <table>
-            <thead><tr><th>出所</th><th>部署</th><th>区分</th><th>名前</th><th>抜粋</th></tr></thead>
-            <tbody id="knowledge-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-    <section id="mail" class="hidden">
-      <div class="grid">
-        <form class="panel" id="mail-form">
-          <label>差出人</label>
-          <input name="sender" id="mail-sender" value="" readonly />
-          <label>件名</label>
-          <input name="subject" required placeholder="口伝: 経理の締日 / 質問" />
-          <label>本文</label>
-          <textarea name="body" rows="8" required></textarea>
-          <p style="color:var(--muted);font-size:13px">差出人は開いた身元。未知のメールは受けない。件名が「口伝」で始まると取り込み。</p>
-          <button class="go" type="submit">メールとして流す</button>
-        </form>
-        <div class="panel">
-          <h3 style="margin-top:0">出したメール</h3>
-          <div id="outbox"></div>
-          <h3>Mailpit 受信</h3>
-          <div id="inbox"></div>
-        </div>
-      </div>
-    </section>
-    <section id="approvals" class="hidden">
-      <div class="panel">
-        <table>
-          <thead><tr><th>状態</th><th>部署</th><th>質問</th><th></th></tr></thead>
-          <tbody id="approval-body"></tbody>
-        </table>
-      </div>
-    </section>
-    <section id="audit" class="hidden">
-      <div class="panel">
-        <p id="audit-intact" class="chip">監査チェーン</p>
-        <table>
-          <thead><tr><th>時刻</th><th>行為</th><th>人</th><th>結果</th><th>対象</th></tr></thead>
-          <tbody id="audit-body"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+  </div>
   <script>
     const starters = [
       "海外出張の申請、画面に出てこない確認事項は？",
       "SharePoint のリンクを顧客メールに貼ってよいか",
       "初めての取引先の与信ルートは？",
-      "Teams に貼ったファイルの正本はどこか",
+      "この見積を顧客へ送信して",
       "該非判定書を再輸出先に渡してよいか",
     ];
     const log = document.getElementById("log");
+    let conversationId = sessionStorage.getItem("conversationId") || "";
     const startersEl = document.getElementById("starters");
     starters.forEach((text) => {
       const button = document.createElement("button");
@@ -214,6 +284,15 @@
       if (value) h.Authorization = "Bearer " + value;
       return h;
     }
+    function el(name, className, text) {
+      const node = document.createElement(name);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+    function clear(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
+    }
     async function api(path, options) {
       const response = await fetch(path, options);
       const payload = await response.json().catch(() => ({}));
@@ -224,17 +303,19 @@
       return payload;
     }
 
-    document.querySelectorAll("nav button").forEach((button) => {
+    document.querySelectorAll(".nav-btn").forEach((button) => {
       button.onclick = () => {
-        document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
         button.classList.add("active");
-        ["chat", "knowledge", "mail", "approvals", "audit"].forEach((id) => {
+        ["chat", "knowledge", "skills", "approvals", "audit", "mail"].forEach((id) => {
           document.getElementById(id).classList.toggle("hidden", id !== button.dataset.tab);
         });
         if (button.dataset.tab === "knowledge") loadKnowledge();
         if (button.dataset.tab === "mail") loadMail();
         if (button.dataset.tab === "approvals") loadApprovals();
         if (button.dataset.tab === "audit") loadAudit();
+        if (button.dataset.tab === "skills") loadSkills();
+        if (button.dataset.tab === "chat") loadOverview();
       };
     });
 
@@ -255,26 +336,66 @@
       }
     }
 
-    function addMsg(role, text, meta) {
-      const wrap = document.createElement("div");
-      wrap.className = "msg";
-      wrap.innerHTML = `<small>${role}</small><p></p>`;
-      wrap.querySelector("p").textContent = text + (meta ? `\n${meta}` : "");
+    async function loadOverview() {
+      try {
+        const payload = await api("/v1/overview", { headers: headers() });
+        const root = document.getElementById("overview");
+        clear(root);
+        [
+          [payload.visible_knowledge, "いま見える文書"],
+          [payload.pending_approvals, "承認待ち"],
+          [payload.department, "開いた部署"],
+        ].forEach(([value, label]) => {
+          const box = el("div", "stat");
+          box.appendChild(el("b", "", String(value)));
+          box.appendChild(el("span", "", label));
+          root.appendChild(box);
+        });
+      } catch (error) {
+        document.getElementById("overview").textContent = error.message;
+      }
+    }
+
+    function addMsg(role, text, meta, citations) {
+      const wrap = el("div", "msg");
+      wrap.appendChild(el("small", "", role));
+      wrap.appendChild(el("p", "", text + (meta ? `\n${meta}` : "")));
+      if (citations && citations.length) {
+        const row = el("div", "cites");
+        citations.forEach((cite) => {
+          const chip = el("button", "chip", cite.name);
+          chip.onclick = () => openKnowledge(cite.name);
+          row.appendChild(chip);
+        });
+        wrap.appendChild(row);
+      }
       log.appendChild(wrap);
       log.scrollTop = log.scrollHeight;
     }
 
-    async function ask(text) {
+    async function ask(text, approvalId) {
       addMsg("あなた", text);
       try {
         const payload = await api("/v1/chat", {
           method: "POST",
           headers: headers(),
-          body: JSON.stringify({ question: text }),
+          body: JSON.stringify({
+            question: text,
+            approval_id: approvalId || null,
+            conversation_id: conversationId || null,
+          }),
         });
+        conversationId = payload.conversation_id || conversationId;
+        if (conversationId) sessionStorage.setItem("conversationId", conversationId);
         const cites = (payload.citations || []).map((c) => `${c.source}:${c.name}`).join(" · ");
-        addMsg("社内AI", payload.answer, [payload.status, payload.intent, payload.approval_id, cites].filter(Boolean).join(" | "));
+        addMsg(
+          "社内AI",
+          payload.answer,
+          [payload.status, payload.intent, payload.action, payload.approval_id, cites].filter(Boolean).join(" | "),
+          payload.citations || []
+        );
         if (payload.status === "needs_approval") loadApprovals();
+        loadOverview();
       } catch (error) {
         addMsg("社内AI", error.message, "error");
       }
@@ -291,20 +412,101 @@
 
     document.getElementById("save-token").onclick = async () => {
       localStorage.setItem("agentToken", token());
-      await Promise.all([whoami(), loadKnowledge(), loadMail(), loadApprovals(), health()]);
+      conversationId = "";
+      sessionStorage.removeItem("conversationId");
+      clear(log);
+      await Promise.all([whoami(), loadKnowledge(), loadMail(), loadApprovals(), loadSkills(), loadOverview(), health()]);
     };
     document.getElementById("token").value = localStorage.getItem("agentToken") || "local-admin";
 
+    function fillSelect(id, values, allLabel) {
+      const select = document.getElementById(id);
+      const current = select.value;
+      clear(select);
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = allLabel;
+      select.appendChild(first);
+      Array.from(new Set(values)).filter(Boolean).sort().forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+      select.value = current;
+    }
+
     async function loadKnowledge() {
       try {
-        const items = await api("/v1/knowledge", { headers: headers() });
-        document.getElementById("knowledge-body").innerHTML = items.map((item) =>
-          `<tr><td class="chip">${item.source_system}</td><td>${item.department || ""}</td><td>${item.classification || ""}</td><td>${item.name}</td><td>${item.excerpt}</td></tr>`
-        ).join("");
+        const params = new URLSearchParams();
+        const q = document.getElementById("knowledge-q").value.trim();
+        const dept = document.getElementById("knowledge-dept").value;
+        const clas = document.getElementById("knowledge-class").value;
+        const source = document.getElementById("knowledge-source").value;
+        if (q) params.set("q", q);
+        if (dept) params.set("department", dept);
+        if (clas) params.set("classification", clas);
+        if (source) params.set("source_system", source);
+        const items = await api("/v1/knowledge?" + params.toString(), { headers: headers() });
+        fillSelect("knowledge-dept", items.map((i) => i.department), "全部署");
+        fillSelect("knowledge-source", items.map((i) => i.source_system), "出所すべて");
+        const body = document.getElementById("knowledge-body");
+        clear(body);
+        if (!items.length) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 4;
+          cell.textContent = "この身元で見える文書は無い。";
+          row.appendChild(cell);
+          body.appendChild(row);
+          return;
+        }
+        items.forEach((item) => {
+          const row = document.createElement("tr");
+          [item.source_system, item.department, item.classification, item.name].forEach((value) => {
+            row.appendChild(el("td", "", value || ""));
+          });
+          row.style.cursor = "pointer";
+          row.onclick = () => openKnowledge(item.name);
+          body.appendChild(row);
+        });
       } catch (error) {
-        document.getElementById("knowledge-body").innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+        const body = document.getElementById("knowledge-body");
+        clear(body);
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 4;
+        cell.textContent = error.message;
+        row.appendChild(cell);
+        body.appendChild(row);
       }
     }
+
+    async function openKnowledge(name) {
+      const reader = document.getElementById("reader");
+      try {
+        const item = await api("/v1/knowledge/" + encodeURIComponent(name), { headers: headers() });
+        clear(reader);
+        reader.appendChild(el("h2", "", item.name));
+        reader.appendChild(el("p", "chip mute", `${item.department || ""} / ${item.classification || ""} / ${item.source_system || ""}`));
+        reader.appendChild(el("pre", "", item.body || item.excerpt || ""));
+        document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "knowledge"));
+        ["chat", "knowledge", "skills", "approvals", "audit", "mail"].forEach((id) => {
+          document.getElementById(id).classList.toggle("hidden", id !== "knowledge");
+        });
+      } catch (error) {
+        clear(reader);
+        reader.appendChild(el("div", "empty", error.message));
+      }
+    }
+
+    document.getElementById("knowledge-search").onclick = () => loadKnowledge();
+    document.getElementById("knowledge-q").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loadKnowledge();
+      }
+    });
 
     document.getElementById("ingest-form").onsubmit = async (event) => {
       event.preventDefault();
@@ -319,11 +521,13 @@
             body: data.body,
             kind: data.kind,
             source_system: data.source_system,
+            department: data.department || "",
           }),
         });
         event.target.reset();
         loadKnowledge();
         health();
+        loadOverview();
       } catch (error) {
         addMsg("取り込み", error.message, "error");
       }
@@ -340,6 +544,39 @@
       }
     };
 
+    async function loadSkills() {
+      const root = document.getElementById("skills-list");
+      try {
+        const items = await api("/v1/skills", { headers: headers() });
+        clear(root);
+        if (!items.length) {
+          root.appendChild(el("div", "empty", "この部署で回せるスキルは無い。"));
+          return;
+        }
+        items.forEach((skill) => {
+          const card = el("div", "skill");
+          card.appendChild(el("strong", "", skill.name));
+          card.appendChild(el("p", "", skill.description || "口伝を手順にしたスキル"));
+          const meta = el("p", "", skill.approval ? "実行前に承認が要る" : "承認なしで回せる");
+          meta.style.color = "var(--muted)";
+          card.appendChild(meta);
+          const button = el("button", "go", "会話で回す");
+          button.onclick = () => {
+            document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "chat"));
+            ["chat", "knowledge", "skills", "approvals", "audit", "mail"].forEach((id) => {
+              document.getElementById(id).classList.toggle("hidden", id !== "chat");
+            });
+            ask(`${skill.name}を回して`);
+          };
+          card.appendChild(button);
+          root.appendChild(card);
+        });
+      } catch (error) {
+        clear(root);
+        root.appendChild(el("div", "empty", error.message));
+      }
+    }
+
     document.getElementById("mail-form").onsubmit = async (event) => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(event.target));
@@ -347,7 +584,7 @@
         const payload = await api("/v1/mail/send", {
           method: "POST",
           headers: headers(),
-          body: JSON.stringify(data),
+          body: JSON.stringify({ sender: data.sender, subject: data.subject, body: data.body }),
         });
         addMail("outbox", `${payload.would_send}\n${payload.text}`);
         loadMail();
@@ -363,13 +600,27 @@
     async function loadMail() {
       try {
         const out = await api("/v1/mail/outbox", { headers: headers() });
-        document.getElementById("outbox").innerHTML = out.map((m) =>
-          `<p><small>${m.via} ${m.to}</small><br>${m.subject}</p>`
-        ).join("") || "<p>まだ無い</p>";
-        const inbox = await api("/v1/mail/inbox", { headers: headers() });
-        document.getElementById("inbox").innerHTML = inbox.map((m) =>
-          `<p><small>${m.from}</small><br>${m.subject}</p>`
-        ).join("") || "<p>Mailpit にまだ無い</p>";
+        const outbox = document.getElementById("outbox");
+        clear(outbox);
+        if (!out.length) outbox.appendChild(el("p", "", "まだ無い"));
+        out.forEach((m) => {
+          const p = el("p");
+          p.appendChild(el("small", "", `${m.via} ${m.to}`));
+          p.appendChild(document.createElement("br"));
+          p.appendChild(document.createTextNode(m.subject));
+          outbox.appendChild(p);
+        });
+        const inboxItems = await api("/v1/mail/inbox", { headers: headers() });
+        const inbox = document.getElementById("inbox");
+        clear(inbox);
+        if (!inboxItems.length) inbox.appendChild(el("p", "", "Mailpit にまだ無い"));
+        inboxItems.forEach((m) => {
+          const p = el("p");
+          p.appendChild(el("small", "", m.from || ""));
+          p.appendChild(document.createElement("br"));
+          p.appendChild(document.createTextNode(m.subject || ""));
+          inbox.appendChild(p);
+        });
       } catch (error) {
         document.getElementById("outbox").textContent = error.message;
       }
@@ -378,29 +629,51 @@
     async function loadApprovals() {
       try {
         const items = await api("/v1/approvals", { headers: headers() });
-        document.getElementById("approval-body").innerHTML = items.map((item) =>
-          `<tr><td>${item.status}</td><td>${item.department}</td><td>${item.question}</td><td>${
-            item.status === "pending"
-              ? `<button class="go" data-approve="${item.id}">通す</button>`
-              : ""
-          }</td></tr>`
-        ).join("") || "<tr><td colspan='4'>待ちは無い</td></tr>";
-        document.querySelectorAll("[data-approve]").forEach((button) => {
-          button.onclick = async () => {
-            try {
-              await api("/v1/approvals/" + button.dataset.approve, {
-                method: "POST",
-                headers: headers(),
-                body: JSON.stringify({ approved: true }),
-              });
-              loadApprovals();
-            } catch (error) {
-              addMsg("承認", error.message, "error");
-            }
-          };
+        const body = document.getElementById("approval-body");
+        clear(body);
+        if (!items.length) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 5;
+          cell.textContent = "待ちは無い";
+          row.appendChild(cell);
+          body.appendChild(row);
+          return;
+        }
+        items.forEach((item) => {
+          const row = document.createElement("tr");
+          [item.status, item.department, item.action || "", item.question].forEach((value) => {
+            row.appendChild(el("td", "", value || ""));
+          });
+          const cell = document.createElement("td");
+          if (item.status === "pending") {
+            const button = el("button", "go", "通す");
+            button.onclick = async () => {
+              try {
+                await api("/v1/approvals/" + item.id, {
+                  method: "POST",
+                  headers: headers(),
+                  body: JSON.stringify({ approved: true }),
+                });
+                loadApprovals();
+              } catch (error) {
+                addMsg("承認", error.message, "error");
+              }
+            };
+            cell.appendChild(button);
+          }
+          row.appendChild(cell);
+          body.appendChild(row);
         });
       } catch (error) {
-        document.getElementById("approval-body").innerHTML = `<tr><td colspan="4">${error.message}</td></tr>`;
+        const body = document.getElementById("approval-body");
+        clear(body);
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 5;
+        cell.textContent = error.message;
+        row.appendChild(cell);
+        body.appendChild(row);
       }
     }
 
@@ -410,15 +683,28 @@
         const intact = document.getElementById("audit-intact");
         intact.textContent = payload.intact ? "ハッシュ連鎖は壊れていない" : "監査ログが改ざんされている";
         intact.classList.toggle("bad", !payload.intact);
-        document.getElementById("audit-body").innerHTML = (payload.events || []).slice().reverse().map((item) =>
-          `<tr><td>${item.ts}</td><td>${item.action}</td><td>${item.actor}</td><td>${item.outcome}</td><td>${item.resource}</td></tr>`
-        ).join("");
+        const body = document.getElementById("audit-body");
+        clear(body);
+        (payload.events || []).slice().reverse().forEach((item) => {
+          const row = document.createElement("tr");
+          [item.ts, item.action, item.actor, item.outcome, item.resource].forEach((value) => {
+            row.appendChild(el("td", "", value || ""));
+          });
+          body.appendChild(row);
+        });
       } catch (error) {
-        document.getElementById("audit-body").innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+        const body = document.getElementById("audit-body");
+        clear(body);
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 5;
+        cell.textContent = error.message;
+        row.appendChild(cell);
+        body.appendChild(row);
       }
     }
 
-    Promise.all([health(), whoami(), loadKnowledge(), loadMail(), loadApprovals()]);
+    Promise.all([health(), whoami(), loadKnowledge(), loadMail(), loadApprovals(), loadSkills(), loadOverview()]);
   </script>
 </body>
 </html>

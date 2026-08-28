@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     azure_client_id: str = ""
     entra_jwks_url: str = ""
     entra_allow_unknown: bool = False
+    entra_role_map: str = "Admin:admin,Approver:approver,Auditor:auditor"
+    entra_group_departments: str = ""
+    department_mailboxes: str = "営業部:sales-lead@example.com,法務部:legal@example.com,与信室:credit@example.com,情報システム部:admin@example.com"
     azure_search_endpoint: str = ""
     azure_search_api_key: str = ""
     azure_search_index: str = "corpus"

@@ -2,4 +2,7 @@ name_prefix            = "closedai"
 location               = "japaneast"
 postgres_admin_password = "ChangeThis_12chars"
 neo4j_password          = "ChangeThis_12chars"
+channel_webhook_secret  = "ChangeThis_webhook"
 enable_nat_gateway      = true
+azure_tenant_id         = ""
+azure_client_id         = ""

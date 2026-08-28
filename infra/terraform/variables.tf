@@ -74,3 +74,9 @@ variable "azure_client_id" {
   default     = ""
   description = "エージェント API のアプリ ID。JWT の aud"
 }
+
+variable "channel_webhook_secret" {
+  type        = string
+  sensitive   = true
+  description = "Teams / メール入口の共有秘密。Bearer では身元を開かない"
+}

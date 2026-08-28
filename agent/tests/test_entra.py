@@ -13,6 +13,20 @@ def test_claims_map_known_oid() -> None:
     assert principal.is_admin
 
 
+def test_claims_overlay_roles_and_department(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "entra_group_departments", "g-sales:営業部")
+    principal = principal_from_claims(
+        {
+            "oid": "22222222-2222-2222-2222-222222222222",
+            "roles": ["Approver"],
+            "groups": ["g-sales"],
+        }
+    )
+    assert principal is not None
+    assert principal.can_approve()
+    assert principal.department == "営業部"
+
+
 def test_unknown_oid_is_rejected() -> None:
     assert principal_from_claims({"oid": "00000000-0000-0000-0000-000000000000", "preferred_username": "x@y"}) is None
 

@@ -92,6 +92,7 @@ class KeywordIndex:
                 "source_system": doc.get("source_system") or "corpus",
                 "department": str(doc.get("department") or ""),
                 "classification": str(doc.get("classification") or ""),
+                "org_wide": "1" if doc.get("org_wide") else "",
                 "excerpt": doc["text"][:180].replace("\n", " "),
             }
         return list(seen.values())
@@ -107,6 +108,7 @@ class KeywordIndex:
             "source_system": first.get("source_system") or "corpus",
             "department": str(first.get("department") or ""),
             "classification": str(first.get("classification") or ""),
+            "org_wide": "1" if first.get("org_wide") else "",
             "body": "\n\n".join(body),
         }
 

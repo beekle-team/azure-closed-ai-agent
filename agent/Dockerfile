@@ -15,7 +15,8 @@ COPY samples /app/samples
 
 ENV PYTHONPATH=/app/src \
     APP_ENV=production \
-    AUTH_MODE=entra
+    AUTH_MODE=entra \
+    DATA_DIR=/app/data
 USER agent
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s \
