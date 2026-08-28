@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     agent_tokens: str = ""
     channel_webhook_secret: str = "local-webhook"
     data_dir: Path = Path(__file__).resolve().parents[2] / "data"
+    database_url: str = ""
     rate_limit_per_minute: int = 60
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"

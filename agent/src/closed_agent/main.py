@@ -21,6 +21,7 @@ from closed_agent.ingest.pipeline import IngestPipeline
 from closed_agent.knowledge.microsoft import import_microsoft_knowledge
 from closed_agent.llm import llm_backend, llm_model
 from closed_agent.orchestrator import run_chat
+from closed_agent.persist import backend as control_backend
 from closed_agent.retrieve.facade import RetrievalFacade, plan_search
 from closed_agent.retrieve.index import search_backend
 from closed_agent.schemas import (
@@ -75,6 +76,7 @@ def health() -> dict[str, object]:
         "entra": entra_ready(),
         "search": search_backend(_facade.keyword),
         "graph": "token" if settings.graph_access_token.strip() else "fixture",
+        "control": control_backend(),
         "version": "0.6.0",
     }
 

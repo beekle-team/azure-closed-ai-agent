@@ -98,9 +98,12 @@ services:
       AZURE_SERVICEBUS_CONNECTION_STRING: ${AZURE_SERVICEBUS_CONNECTION_STRING:-}
       AZURE_SERVICEBUS_QUEUE: ingest
       INGEST_APPLY_INLINE: "true"
+      DATABASE_URL: postgresql://${DB_USERNAME:-laravel}:${DB_PASSWORD:-secret}@postgres:5432/${DB_DATABASE:-closed_agent}
     volumes:
       - ./agent:/app
     depends_on:
+      postgres:
+        condition: service_healthy
       neo4j:
         condition: service_healthy
       admin-nginx:

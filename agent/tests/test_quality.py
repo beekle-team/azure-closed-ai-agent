@@ -1,15 +1,56 @@
 from fastapi.testclient import TestClient
 
 from closed_agent.acl import acl_for_ingest, acl_for_item
+from closed_agent.approvals import ApprovalStore
+from closed_agent.audit import AuditLog
+from closed_agent.persist import close_all
 from closed_agent.dlp import scan
 from closed_agent.identity import directory
 from closed_agent.intent import detect_action, needs_approval
 from closed_agent.main import app
+from closed_agent.persist import backend
 from closed_agent.settings import settings
 
 
 def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def test_control_plane_defaults_to_sqlite_in_tests() -> None:
+    assert backend() == "sqlite"
+
+
+def test_backend_is_postgres_when_url_set(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "database_url", "postgresql://laravel:secret@127.0.0.1:5432/closed_agent")
+    assert backend() == "postgres"
+
+
+def test_postgres_roundtrip(monkeypatch) -> None:
+    url = settings.database_url or "postgresql://laravel:secret@127.0.0.1:5432/closed_agent"
+    try:
+        import psycopg
+
+        with psycopg.connect(url, connect_timeout=3) as conn:
+            conn.execute("SELECT 1")
+    except Exception:
+        import pytest
+
+        pytest.skip("Postgres がいない")
+    monkeypatch.setattr(settings, "database_url", url)
+    close_all()
+    store = ApprovalStore()
+    log = AuditLog()
+    admin = directory.resolve_identity("admin@example.com")
+    assert admin is not None
+    store.reset()
+    log.reset()
+    pending = store.create(principal=admin, question="postgres の確認", action="send")
+    assert store.get(pending.id) is not None
+    log.record(action="test", principal=admin, resource="postgres", outcome="ok")
+    assert log.intact() is True
+    store.reset()
+    log.reset()
+    close_all()
 
 
 def test_intent_covers_mail_phrasing() -> None:

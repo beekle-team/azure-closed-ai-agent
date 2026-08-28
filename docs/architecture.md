@@ -31,7 +31,7 @@ Azure AI Search が文言の正本。エンドポイントが空の手元では�
 
 FastAPI が推論と実行の正本。
 検索計画、承認で止める条件、スキルの実行は、Laravel に混ぜない。
-承認と監査と会話は SQLite（`data/control.sqlite`）に残す。本番は Azure Files に載せる。無い ID は 404。通した人だけ実行できる。
+承認と監査と会話は PostgreSQL（`ca_approvals` / `ca_audit` / `ca_conversations`）。Laravel と同じ Flexible Server / compose の Postgres を使う。`DATABASE_URL` が空の試験だけ SQLite。無い ID は 404。通した人だけ実行できる。
 監査は前件ハッシュを繋ぐ。チャネル入口は共有秘密だけ。身元は差出人から開く。Bearer では差し替えない。
 
 ## 質問のとき、Orchestrator は DB を直接叩かない

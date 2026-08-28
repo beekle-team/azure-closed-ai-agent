@@ -78,7 +78,7 @@ class ApprovalStore:
         )
         with self._lock:
             self._db().execute(
-                """INSERT INTO approvals
+                """INSERT INTO ca_approvals
                    (id, user_id, actor_email, department, question, skill_id, action, status, created_at, decided_at, decided_by, result)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
@@ -102,11 +102,11 @@ class ApprovalStore:
     def get(self, approval_id: str) -> Approval | None:
         if not approval_id:
             return None
-        row = self._db().execute("SELECT * FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+        row = self._db().execute("SELECT * FROM ca_approvals WHERE id = ?", (approval_id,)).fetchone()
         return _from_row(row) if row else None
 
     def list(self, *, principal: Principal | None = None, status: str | None = None) -> list[Approval]:
-        rows = self._db().execute("SELECT * FROM approvals ORDER BY created_at DESC").fetchall()
+        rows = self._db().execute("SELECT * FROM ca_approvals ORDER BY created_at DESC").fetchall()
         items = [_from_row(row) for row in rows]
         if status:
             items = [item for item in items if item.status == status]
@@ -134,7 +134,7 @@ class ApprovalStore:
         approval.decided_by = principal.email
         with self._lock:
             self._db().execute(
-                "UPDATE approvals SET status = ?, decided_at = ?, decided_by = ?, result = ? WHERE id = ?",
+                "UPDATE ca_approvals SET status = ?, decided_at = ?, decided_by = ?, result = ? WHERE id = ?",
                 (approval.status, approval.decided_at, approval.decided_by, approval.result, approval.id),
             )
             self._db().commit()
@@ -149,7 +149,7 @@ class ApprovalStore:
         approval.decided_at = approval.decided_at or _iso(_now())
         with self._lock:
             self._db().execute(
-                "UPDATE approvals SET status = ?, decided_at = ?, result = ? WHERE id = ?",
+                "UPDATE ca_approvals SET status = ?, decided_at = ?, result = ? WHERE id = ?",
                 (approval.status, approval.decided_at, approval.result, approval.id),
             )
             self._db().commit()
@@ -157,7 +157,7 @@ class ApprovalStore:
 
     def reset(self) -> None:
         with self._lock:
-            self._db().execute("DELETE FROM approvals")
+            self._db().execute("DELETE FROM ca_approvals")
             self._db().commit()
 
 

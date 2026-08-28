@@ -27,14 +27,14 @@ class ConversationStore:
         now = _now()
         with self._lock:
             self._db().execute(
-                "INSERT INTO conversations (id, user_id, department, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO ca_conversations (id, user_id, department, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
                 (conversation_id, principal.user_id, principal.department, now, now),
             )
             self._db().commit()
         return conversation_id
 
     def get(self, conversation_id: str, principal: Principal) -> dict[str, object] | None:
-        row = self._db().execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+        row = self._db().execute("SELECT * FROM ca_conversations WHERE id = ?", (conversation_id,)).fetchone()
         if row is None:
             return None
         if row["user_id"] != principal.user_id and not principal.is_admin:
@@ -61,15 +61,15 @@ class ConversationStore:
         with self._lock:
             db = self._db()
             db.execute(
-                "INSERT INTO messages (conversation_id, role, text, status, approval_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO ca_messages (conversation_id, role, text, status, approval_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (conversation_id, role, text, status, approval_id, _now()),
             )
-            db.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (_now(), conversation_id))
+            db.execute("UPDATE ca_conversations SET updated_at = ? WHERE id = ?", (_now(), conversation_id))
             db.commit()
 
     def history(self, conversation_id: str, limit: int = 8) -> list[dict[str, str]]:
         rows = self._db().execute(
-            "SELECT role, text, status, approval_id, created_at FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
+            "SELECT role, text, status, approval_id, created_at FROM ca_messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
             (conversation_id, limit),
         ).fetchall()
         items = [
@@ -88,8 +88,8 @@ class ConversationStore:
     def reset(self) -> None:
         with self._lock:
             db = self._db()
-            db.execute("DELETE FROM messages")
-            db.execute("DELETE FROM conversations")
+            db.execute("DELETE FROM ca_messages")
+            db.execute("DELETE FROM ca_conversations")
             db.commit()
 
 

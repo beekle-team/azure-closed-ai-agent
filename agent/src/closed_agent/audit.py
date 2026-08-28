@@ -15,7 +15,7 @@ def _now() -> str:
 
 
 class AuditLog:
-    """改ざん検知用に前件ハッシュを繋いだ追記ログ。正本は SQLite。"""
+    """改ざん検知用に前件ハッシュを繋いだ追記ログ。正本は Postgres。試験と手元だけ SQLite。"""
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path
@@ -26,7 +26,7 @@ class AuditLog:
         return connect(self.path)
 
     def _tail_hash(self) -> str:
-        row = self._db().execute("SELECT hash FROM audit ORDER BY id DESC LIMIT 1").fetchone()
+        row = self._db().execute("SELECT hash FROM ca_audit ORDER BY id DESC LIMIT 1").fetchone()
         return row["hash"] if row else "genesis"
 
     def record(
@@ -55,7 +55,7 @@ class AuditLog:
             payload = json.dumps(event, ensure_ascii=False, sort_keys=True)
             event["hash"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
             self._db().execute(
-                """INSERT INTO audit
+                """INSERT INTO ca_audit
                    (ts, action, actor, user_id, department, resource, outcome, detail, channel, prev_hash, hash)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
@@ -78,11 +78,11 @@ class AuditLog:
     def list(self, limit: int = 100, department: str | None = None) -> list[dict[str, str]]:
         if department:
             rows = self._db().execute(
-                "SELECT * FROM audit WHERE department = ? ORDER BY id DESC LIMIT ?",
+                "SELECT * FROM ca_audit WHERE department = ? ORDER BY id DESC LIMIT ?",
                 (department, limit),
             ).fetchall()
         else:
-            rows = self._db().execute("SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            rows = self._db().execute("SELECT * FROM ca_audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         items = []
         for row in reversed(rows):
             items.append(
@@ -104,13 +104,13 @@ class AuditLog:
 
     def reset(self) -> None:
         with self._lock:
-            self._db().execute("DELETE FROM audit")
+            self._db().execute("DELETE FROM ca_audit")
             self._db().commit()
 
     def intact(self) -> bool:
         prev = "genesis"
         rows = self._db().execute(
-            "SELECT ts, action, actor, user_id, department, resource, outcome, detail, channel, prev_hash, hash FROM audit ORDER BY id"
+            "SELECT ts, action, actor, user_id, department, resource, outcome, detail, channel, prev_hash, hash FROM ca_audit ORDER BY id"
         ).fetchall()
         for row in rows:
             event = {
