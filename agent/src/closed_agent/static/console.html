@@ -411,11 +411,24 @@
     };
 
     document.getElementById("save-token").onclick = async () => {
+      const button = document.getElementById("save-token");
+      button.disabled = true;
+      button.textContent = "開いています";
       localStorage.setItem("agentToken", token());
       conversationId = "";
       sessionStorage.removeItem("conversationId");
       clear(log);
-      await Promise.all([whoami(), loadKnowledge(), loadMail(), loadApprovals(), loadSkills(), loadOverview(), health()]);
+      try {
+        await Promise.all([whoami(), loadKnowledge(), loadMail(), loadApprovals(), loadSkills(), loadOverview(), health()]);
+        button.textContent = "開いた";
+      } catch (error) {
+        button.textContent = "身元を開く";
+        addMsg("身元", error.message, "error");
+      }
+      setTimeout(() => {
+        button.textContent = "身元を開く";
+        button.disabled = false;
+      }, 900);
     };
     document.getElementById("token").value = localStorage.getItem("agentToken") || "local-admin";
 
