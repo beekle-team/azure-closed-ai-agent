@@ -485,7 +485,7 @@
     async function openKnowledge(name) {
       const reader = document.getElementById("reader");
       try {
-        const item = await api("/v1/knowledge/" + encodeURIComponent(name), { headers: headers() });
+        const item = await api("/v1/knowledge/item?name=" + encodeURIComponent(name), { headers: headers() });
         clear(reader);
         reader.appendChild(el("h2", "", item.name));
         reader.appendChild(el("p", "chip mute", `${item.department || ""} / ${item.classification || ""} / ${item.source_system || ""}`));

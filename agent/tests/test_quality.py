@@ -71,6 +71,17 @@ def test_channel_identity_comes_from_sender_not_bearer() -> None:
     assert "与信室" not in response.json()["text"] or "答えられません" in response.json()["text"] or "根拠" in response.json()["text"]
 
 
+def test_knowledge_item_opens_chunk_name() -> None:
+    client = TestClient(app)
+    response = client.get(
+        "/v1/knowledge/item",
+        headers=_headers("local-admin"),
+        params={"name": "出張マニュアル / 書いていないこと"},
+    )
+    assert response.status_code == 200
+    assert "保険" in response.json()["body"] or "出張" in response.json()["name"]
+
+
 def test_knowledge_search_and_overview() -> None:
     client = TestClient(app)
     items = client.get("/v1/knowledge", headers=_headers("local-sales"), params={"q": "稟議"}).json()

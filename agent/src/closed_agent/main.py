@@ -251,9 +251,10 @@ def list_knowledge(
     return visible
 
 
-@app.get("/v1/knowledge/{name}")
+@app.get("/v1/knowledge/item")
 def get_knowledge(name: str, principal: Principal = Depends(require_principal)) -> dict[str, str]:
-    item = _facade.keyword.get(name)
+    root = name.split(" / ", 1)[0]
+    item = _facade.keyword.get(name) or _facade.keyword.get(root)
     if item is None:
         raise HTTPException(status_code=404, detail="knowledge not found")
     if not can_read(principal, acl_for_item(item)):
