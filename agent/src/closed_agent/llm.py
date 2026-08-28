@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from closed_agent.settings import settings
 
@@ -12,21 +12,58 @@ class Completion:
     output_tokens: int
 
 
-async def complete(*, system: str, user: str) -> Completion:
-    if not settings.azure_openai_endpoint or not settings.azure_openai_api_key:
-        return Completion(
-            text="(モック) グラフ上の関係だけを根拠に回答します。Azure OpenAI の接続後に実応答へ切り替わります。",
-            input_tokens=12,
-            output_tokens=24,
-        )
+def llm_backend() -> str:
+    if settings.app_env == "production" and settings.openrouter_api_key.strip():
+        if not (settings.azure_openai_endpoint.strip() and settings.azure_openai_api_key.strip()):
+            return "blocked"
+        return "azure"
+    if settings.openrouter_api_key.strip() and settings.app_env != "production":
+        return "openrouter"
+    if settings.azure_openai_endpoint.strip() and settings.azure_openai_api_key.strip():
+        return "azure"
+    return "mock"
 
-    client = AsyncAzureOpenAI(
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_key=settings.azure_openai_api_key,
-        api_version=settings.azure_openai_api_version,
-    )
+
+def llm_model() -> str:
+    backend = llm_backend()
+    if backend == "openrouter":
+        return settings.openrouter_model
+    if backend == "azure":
+        return settings.azure_openai_deployment
+    return "mock"
+
+
+async def complete(*, system: str, user: str) -> Completion:
+    backend = llm_backend()
+    if backend == "blocked":
+        return Completion(
+            text="本番では閉域の Azure OpenAI 以外へ推論を出せません。",
+            input_tokens=0,
+            output_tokens=0,
+        )
+    if backend == "mock":
+        return Completion(text=_mock_from_context(user), input_tokens=16, output_tokens=48)
+
+    if backend == "openrouter":
+        client: AsyncOpenAI | AsyncAzureOpenAI = AsyncOpenAI(
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url.rstrip("/"),
+            default_headers={
+                "HTTP-Referer": "http://admin.localhost",
+                "X-Title": "closed-agent-local",
+            },
+        )
+        model = settings.openrouter_model
+    else:
+        client = AsyncAzureOpenAI(
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
+            api_version=settings.azure_openai_api_version,
+        )
+        model = settings.azure_openai_deployment
+
     response = await client.chat.completions.create(
-        model=settings.azure_openai_deployment,
+        model=model,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -39,3 +76,14 @@ async def complete(*, system: str, user: str) -> Completion:
         input_tokens=usage.prompt_tokens if usage else 0,
         output_tokens=usage.completion_tokens if usage else 0,
     )
+
+
+def _mock_from_context(user: str) -> str:
+    lines = [line[2:].strip() for line in user.splitlines() if line.startswith("- ")]
+    if not lines:
+        return "手元の規程・口伝・スキルに、この質問の根拠は見つかりませんでした。"
+    parts = ["根拠になった関係と原本は次です。"]
+    parts.extend(f"・{line}" for line in lines[:6])
+    if any("口伝" in line or "Tacit" in line or "保険" in line or "一声" in line for line in lines):
+        parts.append("マニュアルに無い確認は口伝として残っています。スキル化できるものは提案できます。")
+    return "\n".join(parts)

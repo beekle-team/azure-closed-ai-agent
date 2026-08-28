@@ -1,0 +1,37 @@
+[
+  {
+    "title": "情報取扱規程（SharePoint）",
+    "kind": "manual",
+    "source_system": "sharepoint",
+    "source_url": "https://contoso.sharepoint.com/sites/legal/Shared Documents/情報取扱規程.docx",
+    "body": "これは SharePoint の法務サイトにある Word 原本である。\n社外へ出すときは、リンク共有ではなく法務が発行した写しだけを使う。\nゲストリンクの「リンクを知っている全員」は使わない。\nTeams に貼ったファイルも、正本は SharePoint 側である。"
+  },
+  {
+    "title": "Teams 法務チャネルの口伝",
+    "kind": "tacit",
+    "source_system": "teams",
+    "source_url": "https://teams.microsoft.com/l/channel/19:legal/法務",
+    "body": "法務チャネルで岡田が書いた。\nSharePoint のリンクを顧客メールにそのまま貼ると、権限が漏れる。\nOutlook で送る前に、法務の「外部提供」フラグを見る。\nこの口伝は Teams には残るが、検索の正本には上がってこないのでスキル化する。"
+  },
+  {
+    "title": "Outlook 与信室からの注意",
+    "kind": "tacit",
+    "source_system": "outlook",
+    "source_url": "https://outlook.office.com/mail/inbox/id/credit-first-time",
+    "body": "与信室の近藤から全社営業へ回ったメール。\n初めての取引先は、金額欄を埋める前に与信室へ回す。\n既存枠の流用はしない。\nこのメールは Outlook の会話にしか無く、SharePoint の稟議運用には書いていない。"
+  },
+  {
+    "title": "レコード保持（Purview）",
+    "kind": "manual",
+    "source_system": "purview",
+    "source_url": "https://compliance.microsoft.com/informationprotection",
+    "body": "保持ラベル「社外秘-7年」が付いた文書は、OneDrive の個人削除では消えない。\n出張の領収書スキャンは、このラベルを付けて SharePoint の経理ライブラリへ置く。\nTeams のチャット添付のままでは保持対象にならない。"
+  },
+  {
+    "title": "出張チェックリスト（OneDrive）",
+    "kind": "manual",
+    "source_system": "onedrive",
+    "source_url": "https://contoso-my.sharepoint.com/personal/hr/Documents/出張チェックリスト.xlsx",
+    "body": "人事の OneDrive にある一覧。\n画面の申請項目に無い保険は、契約管理部の包括契約へ名前を載せる。\nOneDrive の個人コピーを正本にしない。更新したら SharePoint の出張マニュアルへ戻す。"
+  }
+]
